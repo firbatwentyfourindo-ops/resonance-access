@@ -1,0 +1,7 @@
+{
+  "users": {
+    "user1@gmail.com": true,
+    "user2@gmail.com": true,
+    "user3@gmail.com": false
+  }
+}
