@@ -1,7 +1,8 @@
 {
-  "users": {
-    "user1@gmail.com": true,
-    "user2@gmail.com": true,
-    "user3@gmail.com": false
-  }
+  "users": [
+    {
+      "email": "greciasukses99@gmail.com",
+      "status": true
+    }
+  ]
 }
