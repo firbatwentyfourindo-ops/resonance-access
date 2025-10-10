@@ -1,62 +1,48 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Login Absen</title>
-</head>
-<body>
-  <h2>Login Absen Pelatihan</h2>
-  <p>Masukkan nama Anda:</p>
-  <input type="text" id="username">
-  <button id="loginBtn">Login</button>
-  <p id="status"></p>
-
+  <title>Login Pelatihan</title>
   <script type="module">
-    import { db } from "./firebase-config.js";
-    import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-    const loginBtn = document.getElementById('loginBtn');
-    const usernameInput = document.getElementById('username');
-    const status = document.getElementById('status');
+    const firebaseConfig = {
+      apiKey: "AIzaSyDyx3hfM_49dQPWrYeKBuZ_5umRPGvTjLI",
+      authDomain: "greciaexperiment.firebaseapp.com",
+      projectId: "greciaexperiment",
+      storageBucket: "greciaexperiment.appspot.com",
+      messagingSenderId: "449936532510",
+      appId: "1:449936532510:web:9186754bceb92884c63a0f",
+      measurementId: "G-5R08SBGN4N"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-    // Jika user sudah pernah login sebelumnya, langsung ke dashboard
-    const storedName = localStorage.getItem('username');
-    if (storedName) {
-      status.textContent = "Kamu sudah login sebagai " + storedName + ". Mengalihkan...";
-      setTimeout(() => window.location.href = "dashboard.html", 1500);
+    async function login() {
+      const nama = document.getElementById("nama").value.trim();
+      if (!nama) return alert("Masukkan nama terlebih dahulu");
+
+      const userRef = doc(db, "users", nama);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        await setDoc(userRef, { nama: nama, pertama_login: new Date().toISOString() });
+        alert("Selamat datang pertama kali, " + nama);
+      } else {
+        alert("Selamat datang kembali, " + nama);
+      }
+
+      sessionStorage.setItem("namaUser", nama);
+      window.location.href = "dashboard.html";
     }
 
-    loginBtn.onclick = async () => {
-      const username = usernameInput.value.trim();
-      if (!username) {
-        alert("Nama tidak boleh kosong");
-        return;
-      }
-
-      const userRef = doc(db, "users", username);
-      const docSnap = await getDoc(userRef);
-
-      if (docSnap.exists()) {
-        // Sudah ada, periksa apakah nama sama dengan localStorage
-        const existingName = docSnap.data().username;
-        if (storedName && storedName !== existingName) {
-          status.textContent = "Nama tidak cocok. Kamu harus login dengan nama: " + existingName;
-          return;
-        }
-        localStorage.setItem("username", existingName);
-        status.textContent = "Login berhasil, masuk ke dashboard...";
-        setTimeout(() => window.location.href = "dashboard.html", 1000);
-      } else {
-        // Belum ada -> buat baru
-        await setDoc(userRef, {
-          username: username,
-          firstLogin: new Date().toISOString()
-        });
-        localStorage.setItem("username", username);
-        status.textContent = "Akun baru dibuat. Masuk ke dashboard...";
-        setTimeout(() => window.location.href = "dashboard.html", 1000);
-      }
-    };
+    window.login = login;
   </script>
+</head>
+<body>
+  <h2>Login Pelatihan</h2>
+  <input type="text" id="nama" placeholder="Masukkan Nama Anda">
+  <button onclick="login()">Masuk</button>
 </body>
 </html>
