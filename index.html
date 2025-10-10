@@ -19,20 +19,35 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    async function login() {
-      const nama = document.getElementById("nama").value.trim();
-      if (!nama) return alert("Masukkan nama terlebih dahulu.");
+    document.addEventListener("DOMContentLoaded", () => {
+      const namaTersimpan = localStorage.getItem("namaTetap");
+      if (namaTersimpan) {
+        document.getElementById("nama").value = namaTersimpan;
+        document.getElementById("nama").disabled = true;
+        document.getElementById("info").textContent = 
+          "Nama Anda telah dikunci sebagai: " + namaTersimpan;
+      }
+    });
 
-      const userRef = doc(db, "users", nama);
+    async function login() {
+      const namaInput = document.getElementById("nama").value.trim();
+      if (!namaInput) return alert("Masukkan nama terlebih dahulu.");
+
+      const namaTersimpan = localStorage.getItem("namaTetap");
+      if (namaTersimpan && namaInput !== namaTersimpan) {
+        return alert(`Nama Anda dikunci sebagai "${namaTersimpan}". Anda tidak bisa menggunakan nama lain.`);
+      }
+
+      const userRef = doc(db, "users", namaInput);
       const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
         await setDoc(userRef, {
-          nama: nama,
+          nama: namaInput,
           dibuat: new Date().toISOString(),
           aktif: true
         });
-        alert("Selamat datang pertama kali, " + nama);
+        alert("Selamat datang pertama kali, " + namaInput);
       } else {
         const data = userSnap.data();
         if (data.aktif) {
@@ -40,10 +55,11 @@
           return;
         }
         await setDoc(userRef, { ...data, aktif: true }, { merge: true });
-        alert("Selamat datang kembali, " + nama);
+        alert("Selamat datang kembali, " + namaInput);
       }
 
-      sessionStorage.setItem("namaUser", nama);
+      localStorage.setItem("namaTetap", namaInput);
+      sessionStorage.setItem("namaUser", namaInput);
       window.location.href = "dashboard.html";
     }
 
@@ -52,6 +68,7 @@
 </head>
 <body>
   <h2>Login Pelatihan</h2>
+  <p id="info"></p>
   <input type="text" id="nama" placeholder="Masukkan Nama Anda">
   <button onclick="login()">Masuk</button>
 </body>
