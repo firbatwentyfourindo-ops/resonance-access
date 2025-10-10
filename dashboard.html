@@ -25,52 +25,47 @@
     document.addEventListener("DOMContentLoaded", async () => {
       document.getElementById("namaUser").textContent = namaUser;
 
-      // Ambil setting acara
+      // Ambil setting link acara
       const settingRef = doc(db, "setting_acara", "rabu_malam");
       const settingSnap = await getDoc(settingRef);
       if (settingSnap.exists()) {
         const data = settingSnap.data();
-        document.getElementById("zoom").href = data.zoom_link;
-        document.getElementById("youtube").href = data.youtube_link;
-        document.getElementById("mulai").textContent = new Date(data.jadwal_mulai).toLocaleString("id-ID");
-
-        // Catat absen user
-        await addDoc(collection(db, "absensi"), {
-          nama: namaUser,
-          waktu_absen: new Date().toISOString(),
-        });
-
-        // Timer auto logout
-        const start = new Date(data.jadwal_mulai);
-        const end = new Date(start.getTime() + data.durasi_menit * 60000);
-        const interval = setInterval(() => {
-          const now = new Date();
-          const diff = end - now;
-          if (diff <= 0) {
-            alert("Waktu belajar sudah selesai. Anda akan logout otomatis.");
-            sessionStorage.clear();
-            window.location.href = "login.html";
-          } else {
-            const menit = Math.floor(diff / 60000);
-            const detik = Math.floor((diff % 60000) / 1000);
-            document.getElementById("timer").textContent = `${menit}m ${detik}s`;
-          }
-        }, 1000);
-      } else {
-        document.getElementById("info").textContent = "Belum ada jadwal pelatihan saat ini.";
+        document.getElementById("zoom").href = data.zoom_link || "#";
+        document.getElementById("youtube").href = data.youtube_link || "#";
       }
+
+      // Catat absen otomatis
+      await addDoc(collection(db, "absensi"), {
+        nama: namaUser,
+        waktu_absen: new Date().toISOString()
+      });
+
+      // Timer logout otomatis setelah 5 menit
+      let countdown = 300; // detik
+      const interval = setInterval(async () => {
+        countdown--;
+        document.getElementById("timer").textContent = countdown + " detik lagi sebelum logout otomatis";
+
+        if (countdown <= 0) {
+          clearInterval(interval);
+          await setDoc(doc(db, "users", namaUser), { aktif: false }, { merge: true });
+          alert("Sesi Anda telah berakhir. Terima kasih sudah mengikuti acara.");
+          sessionStorage.clear();
+          window.location.href = "login.html";
+        }
+      }, 1000);
     });
   </script>
 </head>
 <body>
   <h2>Dashboard Peserta</h2>
   <p>Selamat datang, <b id="namaUser"></b></p>
-  <p id="info">Waktu mulai: <span id="mulai"></span></p>
-  <p>Sisa waktu belajar: <span id="timer">-</span></p>
+  <p>Sesi Anda akan berakhir dalam: <span id="timer">300 detik</span></p>
   <p>
-    <a id="zoom" target="_blank">Link Zoom</a> | 
-    <a id="youtube" target="_blank">Link YouTube</a>
+    <a id="zoom" target="_blank">Ikuti Acara via Zoom</a><br>
+    <a id="youtube" target="_blank">Ikuti Acara via YouTube</a>
   </p>
-  <button onclick="sessionStorage.clear();window.location='login.html'">Logout</button>
+  <p>Pastikan Anda tetap berada di halaman ini selama acara berlangsung untuk pencatatan kehadiran yang sah.</p>
+  <button onclick="sessionStorage.clear();window.location='login.html'">Logout Manual</button>
 </body>
 </html>
