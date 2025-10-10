@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login Absensi</title>
+</head>
+<body>
+  <h2>Login Absensi</h2>
+  <form id="loginForm">
+    <label>Masukkan Username:</label><br>
+    <input type="text" id="username" placeholder="contoh: budi123" required>
+    <button type="submit">Masuk</button>
+  </form>
+
+  <script type="module">
+    // --- Firebase Config milikmu ---
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { 
+      getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp 
+    } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDyx3hfM_49dQPWrYeKBuZ_5umRPGvTjLI",
+      authDomain: "greciaexperiment.firebaseapp.com",
+      projectId: "greciaexperiment",
+      storageBucket: "greciaexperiment.appspot.com",
+      messagingSenderId: "449936532510",
+      appId: "1:449936532510:web:9186754bceb92884c63a0f",
+      measurementId: "G-5R08SBGN4N"
+    };
+
+    // --- Inisialisasi Firebase ---
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // --- Fungsi untuk membuat device ID (supaya user bisa dilacak) ---
+    function getDeviceId() {
+      let id = localStorage.getItem('device_id');
+      if (!id) {
+        id = crypto.randomUUID();
+        localStorage.setItem('device_id', id);
+      }
+      return id;
+    }
+
+    // --- Auto redirect jika sudah login ---
+    const savedUser = localStorage.getItem('absen_username');
+    if (savedUser) {
+      window.location.href = "absen.html";
+    }
+
+    // --- Event submit form login ---
+    const form = document.getElementById("loginForm");
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const username = document.getElementById("username").value.trim();
+      if (!username) {
+        alert("Isi username dulu!");
+        return;
+      }
+
+      const deviceId = getDeviceId();
+      const userRef = doc(db, "users", username);
+
+      try {
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          // Jika user sudah ada, update waktu login terakhir
+          await updateDoc(userRef, {
+            last_login: serverTimestamp(),
+            device_id: deviceId
+          });
+          console.log("Login berhasil (update user).");
+        } else {
+          // Jika user baru, buat dokumen baru
+          await setDoc(userRef, {
+            created_at: serverTimestamp(),
+            last_login: serverTimestamp(),
+            device_id: deviceId,
+            total_absen: 0
+          });
+          console.log("User baru dibuat.");
+        }
+
+        // Simpan ke localStorage agar tidak perlu login ulang
+        localStorage.setItem("absen_username", username);
+
+        // Arahkan ke halaman absen
+        window.location.href = "absen.html";
+
+      } catch (err) {
+        console.error("Gagal login:", err);
+        alert("Terjadi kesalahan saat login, cek console.");
+      }
+    });
+  </script>
+</body>
+</html>
