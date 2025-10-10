@@ -1,32 +1,41 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard Admin</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard - Absensi</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gray-100 min-h-screen flex flex-col">
 
-  <nav class="bg-indigo-600 text-white p-4 flex justify-between items-center">
-    <h1 class="font-semibold text-lg">Grecia Admin Panel</h1>
-    <button id="logoutBtn" class="bg-white text-indigo-600 px-4 py-1 rounded-lg font-medium hover:bg-indigo-50">Keluar</button>
-  </nav>
+  <header class="w-full bg-white shadow p-4 flex justify-between items-center">
+    <h1 class="text-lg font-semibold text-gray-700">Absensi Online</h1>
+    <div class="flex items-center gap-4">
+      <span id="userLabel" class="text-gray-600"></span>
+      <button id="logoutBtn" class="text-red-600 hover:text-red-800">Logout</button>
+    </div>
+  </header>
 
-  <main class="p-6">
-    <h2 class="text-xl font-bold mb-4">Selamat datang di Dashboard</h2>
-    <p id="userEmail" class="text-gray-700 mb-6"></p>
+  <main class="flex-grow flex flex-col items-center justify-center space-y-6 px-4">
+    <div class="bg-white p-6 rounded-lg shadow w-full max-w-md text-center">
+      <p id="sessionInfo" class="text-sm text-gray-600 mb-4">Memuat sesi...</p>
 
-    <div class="grid gap-4 md:grid-cols-2">
-      <div class="p-4 bg-white shadow rounded-lg">⚙️ <b>Kelola Konten</b> (akan dibuat nanti)</div>
-      <div class="p-4 bg-white shadow rounded-lg">👤 <b>Kelola Pengguna</b> (akan dibuat nanti)</div>
+      <div id="buttons" class="flex flex-col gap-3">
+        <!-- Tombol akan di-render di sini -->
+      </div>
+
+      <p id="statusMsg" class="text-sm text-gray-700 mt-4"></p>
     </div>
   </main>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+    import {
+      getFirestore, doc, getDoc, collection, query, where, getDocs,
+      addDoc, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
+    // firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyDyx3hfM_49dQPWrYeKBuZ_5umRPGvTjLI",
       authDomain: "greciaexperiment.firebaseapp.com",
@@ -38,23 +47,154 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
+    const db = getFirestore(app);
 
+    const username = localStorage.getItem('username');
+    const userLabel = document.getElementById('userLabel');
     const logoutBtn = document.getElementById('logoutBtn');
-    const userEmail = document.getElementById('userEmail');
+    const sessionInfo = document.getElementById('sessionInfo');
+    const buttonsWrap = document.getElementById('buttons');
+    const statusMsg = document.getElementById('statusMsg');
 
-    logoutBtn.addEventListener('click', async () => {
-      await signOut(auth);
-      window.location.href = "login.html";
+    if (!username) {
+      // jika belum login, balik ke login
+      window.location.href = 'login.html';
+    } else {
+      userLabel.textContent = username;
+    }
+
+    logoutBtn.addEventListener('click', () => {
+      localStorage.removeItem('username');
+      // jangan hapus device_id
+      window.location.href = 'login.html';
     });
 
-    onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        window.location.href = "login.html";
-      } else {
-        userEmail.textContent = `Login sebagai: ${user.email}`;
+    // ambil dokumen sessions/current (gunanya: kontrol admin no-code)
+    async function fetchCurrentSession() {
+      try {
+        const curRef = doc(db, 'sessions', 'current');
+        const curSnap = await getDoc(curRef);
+        if (!curSnap.exists()) return null;
+        return curSnap.data();
+      } catch (e) {
+        console.error(e);
+        return null;
       }
-    });
+    }
+
+    // cek apakah sudah absen di sesi ini
+    async function alreadyAttended(sessionId, username) {
+      if (!sessionId) return false;
+      try {
+        const absenCol = collection(db, 'sessions', sessionId, 'absen');
+        const q = query(absenCol, where('username', '==', username));
+        const snap = await getDocs(q);
+        return !snap.empty;
+      } catch (e) {
+        console.error(e);
+        // defensif: jika gagal, dianggap belum hadir
+        return false;
+      }
+    }
+
+    // catat absen
+    async function recordAttendance(sessionId, platform, openLink) {
+      if (!sessionId) {
+        statusMsg.textContent = 'Tidak ada sesi aktif. Hubungi admin.';
+        if (openLink) window.open(openLink, '_blank');
+        return;
+      }
+
+      // prevent double-click per tab
+      const key = `att_${sessionId}`;
+      if (sessionStorage.getItem(key)) {
+        statusMsg.textContent = 'Kamu sudah tercatat hadir di sesi ini.';
+        if (openLink) window.open(openLink, '_blank');
+        return;
+      }
+
+      // cek di firestore
+      const already = await alreadyAttended(sessionId, username);
+      if (already) {
+        sessionStorage.setItem(key, '1');
+        statusMsg.textContent = 'Kamu sudah tercatat hadir di sesi ini.';
+        if (openLink) window.open(openLink, '_blank');
+        return;
+      }
+
+      try {
+        const absenCol = collection(db, 'sessions', sessionId, 'absen');
+        await addDoc(absenCol, {
+          username,
+          platform,
+          waktu: serverTimestamp(),
+          deviceId: localStorage.getItem('device_id') || null
+        });
+        sessionStorage.setItem(key, '1');
+        statusMsg.textContent = '✅ Absensi tercatat. Selamat mengikuti acara!';
+      } catch (e) {
+        console.error(e);
+        statusMsg.textContent = 'Gagal mencatat absen. Cek koneksi.';
+      } finally {
+        if (openLink) window.open(openLink, '_blank');
+      }
+    }
+
+    // render tombol sesuai config sesi
+    async function render() {
+      buttonsWrap.innerHTML = 'Memuat...';
+      statusMsg.textContent = '';
+      const sesi = await fetchCurrentSession();
+      buttonsWrap.innerHTML = '';
+
+      if (!sesi || !sesi.sessionId) {
+        sessionInfo.textContent = 'Tidak ada sesi aktif saat ini.';
+        return;
+      }
+
+      const { sessionId, status = 'nonaktif', link_zoom, link_youtube, name } = sesi;
+      sessionInfo.textContent = `Sesi: ${sessionId} ${name ? '— ' + name : ''} (status: ${status})`;
+
+      if (status !== 'aktif') {
+        const p = document.createElement('p');
+        p.className = 'text-sm text-gray-600';
+        p.textContent = 'Absensi belum dibuka oleh admin.';
+        buttonsWrap.appendChild(p);
+        return;
+      }
+
+      // tombol Zoom
+      if (link_zoom) {
+        const z = document.createElement('button');
+        z.className = 'w-full bg-blue-600 text-white py-2 rounded';
+        z.textContent = 'Ikuti Acara via Zoom';
+        z.addEventListener('click', () => recordAttendance(sessionId, 'Zoom', link_zoom));
+        buttonsWrap.appendChild(z);
+      }
+
+      // tombol YouTube
+      if (link_youtube) {
+        const y = document.createElement('button');
+        y.className = 'w-full bg-red-600 text-white py-2 rounded';
+        y.textContent = 'Ikuti Acara via YouTube';
+        y.addEventListener('click', () => recordAttendance(sessionId, 'YouTube', link_youtube));
+        buttonsWrap.appendChild(y);
+      }
+
+      // tombol cek status absen
+      const cek = document.createElement('button');
+      cek.className = 'mt-2 underline text-sm text-gray-600';
+      cek.textContent = 'Cek status absensi saya';
+      cek.addEventListener('click', async () => {
+        const did = await alreadyAttended(sessionId, username);
+        alert(did ? 'Kamu sudah tercatat hadir.' : 'Belum tercatat hadir.');
+      });
+      buttonsWrap.appendChild(cek);
+    }
+
+    // initial render + auto refresh setiap 15s
+    render();
+    setInterval(render, 15000);
   </script>
 </body>
 </html>
