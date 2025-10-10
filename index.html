@@ -1,115 +1,43 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Login - Absensi (username)</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login Absen</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-50 flex items-center justify-center min-h-screen">
-  <div class="bg-white p-8 rounded-2xl shadow-md w-full max-w-sm">
-    <h2 class="text-2xl font-bold text-center mb-6">Login Kehadiran</h2>
-
-    <form id="loginForm" class="space-y-4">
-      <div>
-        <label for="username" class="block text-gray-700">Username</label>
-        <input id="username" type="text" required autocomplete="off"
-          class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
-          placeholder="contoh: peserta001" />
-      </div>
-
-      <button id="loginButton" type="submit"
-        class="w-full bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 transition-all">
-        Masuk
-      </button>
-
-      <p id="errorMessage" class="text-red-500 text-sm text-center mt-2"></p>
-    </form>
+<body class="flex items-center justify-center h-screen bg-gray-100">
+  <div class="bg-white p-8 rounded-2xl shadow-md w-80 text-center">
+    <h2 class="text-2xl font-bold mb-6">Login Absen</h2>
+    <input id="username" type="text" placeholder="Masukkan Username"
+      class="border border-gray-300 w-full p-2 rounded mb-4 text-center focus:outline-none">
+    <button id="loginBtn"
+      class="bg-blue-600 hover:bg-blue-700 text-white w-full py-2 rounded font-semibold">Masuk</button>
+    <p id="status" class="text-sm text-gray-600 mt-3"></p>
   </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import {
-      getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+    import { db } from "./firebase-config.js";
+    import { collection, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-    // === Firebase config (pakai milikmu) ===
-    const firebaseConfig = {
-      apiKey: "AIzaSyDyx3hfM_49dQPWrYeKBuZ_5umRPGvTjLI",
-      authDomain: "greciaexperiment.firebaseapp.com",
-      projectId: "greciaexperiment",
-      storageBucket: "greciaexperiment.appspot.com",
-      messagingSenderId: "449936532510",
-      appId: "1:449936532510:web:9186754bceb92884c63a0f",
-      measurementId: "G-5R08SBGN4N"
-    };
+    const btn = document.getElementById('loginBtn');
+    const usernameInput = document.getElementById('username');
+    const status = document.getElementById('status');
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    btn.addEventListener('click', async () => {
+      const username = usernameInput.value.trim();
+      if (!username) return alert("Masukkan username terlebih dahulu!");
 
-    // device id sederhana
-    function getDeviceId() {
-      let id = localStorage.getItem('device_id');
-      if (!id) {
-        id = crypto.randomUUID();
-        localStorage.setItem('device_id', id);
-      }
-      return id;
-    }
+      localStorage.setItem("username", username);
 
-    // auto redirect jika sudah login (username ada)
-    if (localStorage.getItem('username')) {
-      window.location.href = 'dashboard.html';
-    }
+      const userRef = doc(collection(db, "users"), username);
+      await setDoc(userRef, {
+        username: username,
+        lastLogin: new Date().toISOString()
+      }, { merge: true });
 
-    const form = document.getElementById('loginForm');
-    const errorMessage = document.getElementById('errorMessage');
-    const loginButton = document.getElementById('loginButton');
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      errorMessage.textContent = '';
-      loginButton.disabled = true;
-      loginButton.textContent = 'Memproses...';
-
-      const raw = document.getElementById('username').value.trim();
-      if (!raw) {
-        errorMessage.textContent = 'Username tidak boleh kosong.';
-        loginButton.disabled = false;
-        loginButton.textContent = 'Masuk';
-        return;
-      }
-      const username = raw.toLowerCase();
-
-      try {
-        const userRef = doc(db, 'users', username);
-        const userSnap = await getDoc(userRef);
-
-        const deviceId = getDeviceId();
-
-        if (!userSnap.exists()) {
-          await setDoc(userRef, {
-            username,
-            createdAt: serverTimestamp(),
-            lastLogin: serverTimestamp(),
-            deviceId
-          });
-        } else {
-          await updateDoc(userRef, {
-            lastLogin: serverTimestamp(),
-            deviceId
-          });
-        }
-
-        localStorage.setItem('username', username);
-        window.location.href = 'dashboard.html';
-      } catch (err) {
-        console.error(err);
-        errorMessage.textContent = 'Gagal login. Cek console.';
-      } finally {
-        loginButton.disabled = false;
-        loginButton.textContent = 'Masuk';
-      }
+      status.textContent = "Berhasil login, masuk ke dashboard...";
+      setTimeout(() => window.location.href = "dashboard.html", 1200);
     });
   </script>
 </body>
