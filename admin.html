@@ -20,18 +20,16 @@
     const db = getFirestore(app);
 
     document.addEventListener("DOMContentLoaded", async () => {
-      // load data setting
+      // Load data setting link
       const docRef = doc(db, "setting_acara", "rabu_malam");
       const snap = await getDoc(docRef);
       if (snap.exists()) {
         const d = snap.data();
-        document.getElementById("zoom").value = d.zoom_link;
-        document.getElementById("youtube").value = d.youtube_link;
-        document.getElementById("jadwal").value = d.jadwal_mulai;
-        document.getElementById("durasi").value = d.durasi_menit;
+        document.getElementById("zoom").value = d.zoom_link || "";
+        document.getElementById("youtube").value = d.youtube_link || "";
       }
 
-      // tampilkan absen
+      // Tampilkan data absen
       const absRef = collection(db, "absensi");
       const snaps = await getDocs(absRef);
       const list = document.getElementById("absenList");
@@ -46,17 +44,13 @@
     async function simpanSetting() {
       const zoom = document.getElementById("zoom").value;
       const youtube = document.getElementById("youtube").value;
-      const jadwal = document.getElementById("jadwal").value;
-      const durasi = parseInt(document.getElementById("durasi").value);
 
       await setDoc(doc(db, "setting_acara", "rabu_malam"), {
         zoom_link: zoom,
-        youtube_link: youtube,
-        jadwal_mulai: jadwal,
-        durasi_menit: durasi
+        youtube_link: youtube
       });
 
-      alert("Setting acara berhasil disimpan!");
+      alert("Link acara berhasil diperbarui!");
     }
 
     window.simpanSetting = simpanSetting;
@@ -67,8 +61,6 @@
   <h3>Atur Link Acara</h3>
   <input id="zoom" placeholder="Link Zoom"><br>
   <input id="youtube" placeholder="Link YouTube"><br>
-  <input id="jadwal" type="datetime-local"><br>
-  <input id="durasi" type="number" placeholder="Durasi menit"><br>
   <button onclick="simpanSetting()">Simpan</button>
 
   <h3>Data Absensi</h3>
