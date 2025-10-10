@@ -1,48 +1,64 @@
 <!DOCTYPE html>
-<html lang="id">
+<html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Absen</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Admin Absen Mingguan</title>
 </head>
-<body class="bg-gray-100 p-6">
-  <h1 class="text-2xl font-bold mb-4 text-center">📋 Daftar Absen Hari Ini</h1>
-  <table class="min-w-full bg-white rounded shadow-md">
+<body>
+  <h2>Admin - Rekap Absen Mingguan</h2>
+  <p>Data absen untuk minggu ini:</p>
+  <table border="1" cellpadding="4" cellspacing="0">
     <thead>
-      <tr class="bg-gray-200 text-left">
-        <th class="p-2">Username</th>
-        <th class="p-2">Tipe</th>
-        <th class="p-2">Waktu</th>
+      <tr>
+        <th>Username</th>
+        <th>Tanggal</th>
+        <th>Tipe</th>
+        <th>Waktu</th>
       </tr>
     </thead>
     <tbody id="absenList"></tbody>
   </table>
-  <p id="info" class="text-sm text-gray-500 mt-3 text-center"></p>
+  <p id="info"></p>
 
   <script type="module">
     import { db } from "./firebase-config.js";
-    import { collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+    import { doc, getDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+    function getWeekNumber(d) {
+      d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+      return weekNo;
+    }
+
+    const now = new Date();
+    const week = getWeekNumber(now);
+    const year = now.getFullYear();
+    const absensiDoc = doc(db, "absensi", `minggu_${year}_${week}`);
 
     const tbody = document.getElementById("absenList");
     const info = document.getElementById("info");
 
     async function loadAbsen() {
-      tbody.innerHTML = "<tr><td colspan='3' class='p-2 text-center text-gray-500'>Memuat data...</td></tr>";
-      const q = query(collection(db, "absensi"), orderBy("waktu", "desc"));
-      const snap = await getDocs(q);
+      const docSnap = await getDoc(absensiDoc);
       tbody.innerHTML = "";
-      snap.forEach(doc => {
-        const d = doc.data();
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td class="border-t p-2">${d.username}</td>
-          <td class="border-t p-2 capitalize">${d.tipe}</td>
-          <td class="border-t p-2">${new Date(d.waktu).toLocaleTimeString()}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-      info.textContent = "Terakhir diperbarui: " + new Date().toLocaleTimeString();
+      if (docSnap.exists()) {
+        const data = docSnap.data().data || [];
+        data.sort((a, b) => new Date(b.waktu) - new Date(a.waktu));
+        data.forEach(d => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${d.username}</td>
+            <td>${d.tanggal}</td>
+            <td>${d.tipe}</td>
+            <td>${new Date(d.waktu).toLocaleTimeString()}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+        info.textContent = "Terakhir diperbarui: " + new Date().toLocaleTimeString();
+      } else {
+        info.textContent = "Belum ada data absen minggu ini.";
+      }
     }
 
     loadAbsen();
