@@ -1,354 +1,52 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Admin Panel - Grecia</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Absen</title>
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- CodeMirror (editor) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/javascript/javascript.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/htmlmixed/htmlmixed.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/css/css.js"></script>
 </head>
-<body class="bg-gray-50 min-h-screen">
-
-  <nav class="bg-indigo-600 text-white p-4 flex justify-between items-center">
-    <h1 class="font-semibold text-lg">Grecia — Admin Panel</h1>
-    <div class="flex items-center gap-4">
-      <span id="adminEmail" class="text-sm"></span>
-      <button id="signOutBtn" class="bg-white text-indigo-600 px-3 py-1 rounded">Logout</button>
-    </div>
-  </nav>
-
-  <main class="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-    <!-- Left: Controls -->
-    <section class="md:col-span-1 bg-white p-4 rounded shadow">
-      <h2 class="font-semibold mb-3">Kontrol Sesi</h2>
-
-      <label class="block text-sm text-gray-700 mb-1">Session ID</label>
-      <input id="sessionIdInput" class="w-full border p-2 rounded mb-3" placeholder="contoh: pelatihan_2025_10_10" />
-
-      <label class="block text-sm text-gray-700 mb-1">Nama Acara (opsional)</label>
-      <input id="namaEventInput" class="w-full border p-2 rounded mb-3" placeholder="Nama acara" />
-
-      <label class="block text-sm text-gray-700 mb-1">Link Zoom</label>
-      <input id="linkZoomInput" class="w-full border p-2 rounded mb-3" placeholder="https://zoom.us/..." />
-
-      <label class="block text-sm text-gray-700 mb-1">Link YouTube</label>
-      <input id="linkYoutubeInput" class="w-full border p-2 rounded mb-3" placeholder="https://youtube.com/..." />
-
-      <div class="flex items-center gap-2 mb-3">
-        <input id="toggleAktif" type="checkbox" />
-        <label for="toggleAktif" class="text-sm text-gray-700">Absensi aktif</label>
-      </div>
-
-      <button id="saveSessionBtn" class="w-full bg-indigo-600 text-white py-2 rounded">Simpan & Publish</button>
-      <p id="sessionStatus" class="text-sm mt-2 text-gray-600"></p>
-
-      <hr class="my-4" />
-
-      <h3 class="font-semibold mb-2">Editor Kode (admin_code)</h3>
-      <select id="fileSelect" class="w-full border p-2 rounded mb-2">
-        <option value="home.html">home.html</option>
-        <option value="script.js">script.js</option>
-        <option value="style.css">style.css</option>
-      </select>
-
-      <div class="flex gap-2">
-        <button id="saveBtn" class="flex-1 bg-indigo-600 text-white py-2 rounded">💾 Simpan</button>
-        <button id="rollbackBtn" class="flex-1 bg-yellow-600 text-white py-2 rounded">⏪ Rollback</button>
-      </div>
-
-      <p id="statusMsg" class="text-sm mt-2 text-gray-600"></p>
-    </section>
-
-    <!-- Middle: Editor -->
-    <section class="md:col-span-2 bg-white p-4 rounded shadow">
-      <h2 class="font-semibold mb-3">Editor & Preview</h2>
-      <div id="editor" style="height:420px;border:1px solid #ddd;"></div>
-
-      <div class="mt-3 flex gap-2">
-        <button id="runBtn" class="bg-green-600 text-white py-2 px-3 rounded">▶️ Preview</button>
-        <button id="exportBtn" class="bg-gray-700 text-white py-2 px-3 rounded">⬇️ Export</button>
-      </div>
-
-      <p class="text-sm text-gray-500 mt-2">Preview akan menampilkan HTML pada iframe (jika pilih file `home.html`).</p>
-
-      <iframe id="previewFrame" class="w-full mt-3" style="height:320px;border:1px solid #e5e7eb;border-radius:6px;"></iframe>
-    </section>
-  </main>
+<body class="bg-gray-100 p-6">
+  <h1 class="text-2xl font-bold mb-4 text-center">📋 Daftar Absen Hari Ini</h1>
+  <table class="min-w-full bg-white rounded shadow-md">
+    <thead>
+      <tr class="bg-gray-200 text-left">
+        <th class="p-2">Username</th>
+        <th class="p-2">Tipe</th>
+        <th class="p-2">Waktu</th>
+      </tr>
+    </thead>
+    <tbody id="absenList"></tbody>
+  </table>
+  <p id="info" class="text-sm text-gray-500 mt-3 text-center"></p>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import {
-      getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
-    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-    import {
-      getFirestore, doc, getDoc, setDoc, collection, addDoc,
-      serverTimestamp, query, orderBy, limit, getDocs
-    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+    import { db } from "./firebase-config.js";
+    import { collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-    // ========== Config ==========
-    const firebaseConfig = {
-      apiKey: "AIzaSyDyx3hfM_49dQPWrYeKBuZ_5umRPGvTjLI",
-      authDomain: "greciaexperiment.firebaseapp.com",
-      projectId: "greciaexperiment",
-      storageBucket: "greciaexperiment.appspot.com",
-      messagingSenderId: "449936532510",
-      appId: "1:449936532510:web:9186754bceb92884c63a0f",
-      measurementId: "G-5R08SBGN4N"
-    };
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+    const tbody = document.getElementById("absenList");
+    const info = document.getElementById("info");
 
-    // ========== Admin whitelist (ubah sesuai kebutuhan) ==========
-    const allowedAdmins = ["admin@grecia.com", "owner@grecia.com"]; // ganti dengan email adminmu
-
-    // ========== Elements ==========
-    const adminEmail = document.getElementById('adminEmail');
-    const signOutBtn = document.getElementById('signOutBtn');
-
-    const sessionIdInput = document.getElementById('sessionIdInput');
-    const namaEventInput = document.getElementById('namaEventInput');
-    const linkZoomInput = document.getElementById('linkZoomInput');
-    const linkYoutubeInput = document.getElementById('linkYoutubeInput');
-    const toggleAktif = document.getElementById('toggleAktif');
-    const saveSessionBtn = document.getElementById('saveSessionBtn');
-    const sessionStatus = document.getElementById('sessionStatus');
-
-    const fileSelect = document.getElementById('fileSelect');
-    const statusMsg = document.getElementById('statusMsg');
-    const editorEl = document.getElementById('editor');
-    const previewFrame = document.getElementById('previewFrame');
-
-    const saveBtn = document.getElementById('saveBtn');
-    const rollbackBtn = document.getElementById('rollbackBtn');
-    const runBtn = document.getElementById('runBtn');
-    const exportBtn = document.getElementById('exportBtn');
-
-    // ========== Simple login form (popup) if not logged ==========
-    async function promptLogin() {
-      const email = prompt('Masukkan email admin:');
-      if (!email) return;
-      const password = prompt('Masukkan password admin:');
-      if (!password) return;
-      try {
-        await signInWithEmailAndPassword(auth, email.trim(), password || '');
-      } catch (e) {
-        alert('Login gagal. Cek email/password.');
-        console.error(e);
-      }
+    async function loadAbsen() {
+      tbody.innerHTML = "<tr><td colspan='3' class='p-2 text-center text-gray-500'>Memuat data...</td></tr>";
+      const q = query(collection(db, "absensi"), orderBy("waktu", "desc"));
+      const snap = await getDocs(q);
+      tbody.innerHTML = "";
+      snap.forEach(doc => {
+        const d = doc.data();
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="border-t p-2">${d.username}</td>
+          <td class="border-t p-2 capitalize">${d.tipe}</td>
+          <td class="border-t p-2">${new Date(d.waktu).toLocaleTimeString()}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+      info.textContent = "Terakhir diperbarui: " + new Date().toLocaleTimeString();
     }
 
-    // ========== Auth state & role check ==========
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        // minta login cepat
-        await promptLogin();
-        return;
-      }
-
-      // role check
-      if (!allowedAdmins.includes(user.email)) {
-        alert('Akses admin ditolak untuk: ' + user.email);
-        await signOut(auth);
-        return;
-      }
-
-      adminEmail.textContent = user.email;
-      // load current session config
-      loadCurrentSession();
-      // load default file
-      loadFile(fileSelect.value);
-    });
-
-    signOutBtn.addEventListener('click', async () => {
-      await signOut(auth);
-      window.location.reload();
-    });
-
-    // ========== CodeMirror editor ==========
-    const editor = CodeMirror(editorEl, {
-      lineNumbers: true,
-      mode: "htmlmixed",
-      tabSize: 2,
-      value: "<!-- Memuat... -->"
-    });
-
-    // autosave logic (3s after stop typing)
-    let saveTimer = null;
-    editor.on('change', () => {
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => {
-        saveFileAuto();
-      }, 3000);
-    });
-
-    // ========== Firestore: load & save file (with history) ==========
-    async function loadFile(fileName) {
-      try {
-        const fRef = doc(db, 'admin_code', fileName);
-        const snap = await getDoc(fRef);
-        if (snap.exists()) {
-          editor.setValue(snap.data().content || '');
-          statusMsg.textContent = 'File dimuat: ' + fileName;
-        } else {
-          editor.setValue('<!-- File baru: ' + fileName + ' -->');
-          statusMsg.textContent = 'File baru (belum ada di Firestore).';
-        }
-      } catch (e) {
-        console.error(e);
-        statusMsg.textContent = 'Gagal memuat file.';
-      }
-    }
-
-    async function saveFileManual() {
-      await saveFile({ notify: true });
-    }
-
-    async function saveFileAuto() {
-      await saveFile({ notify: false });
-    }
-
-    async function saveFile({ notify = true } = {}) {
-      const fileName = fileSelect.value;
-      const content = editor.getValue();
-
-      try {
-        const fRef = doc(db, 'admin_code', fileName);
-        // simpan versi lama ke history (jika ada)
-        const old = await getDoc(fRef);
-        if (old.exists() && old.data().content) {
-          const histCol = collection(db, 'admin_code', fileName, 'history');
-          await addDoc(histCol, { content: old.data().content, ts: serverTimestamp() });
-        }
-
-        // simpan versi baru
-        await setDoc(fRef, { content, updatedAt: serverTimestamp() });
-        if (notify) statusMsg.textContent = '✅ Disimpan: ' + fileName;
-      } catch (e) {
-        console.error(e);
-        statusMsg.textContent = 'Gagal menyimpan.';
-      }
-    }
-
-    // rollback -> load last history item and make it current
-    async function rollbackLatest() {
-      const fileName = fileSelect.value;
-      try {
-        const histCol = collection(db, 'admin_code', fileName, 'history');
-        const q = query(histCol, orderBy('ts', 'desc'), limit(1));
-        const snaps = await getDocs(q);
-        if (snaps.empty) {
-          alert('Tidak ada versi history untuk file ini.');
-          return;
-        }
-        const last = snaps.docs[0].data();
-        if (!last.content) {
-          alert('Versi history kosong.');
-          return;
-        }
-        // set sebagai current
-        await setDoc(doc(db, 'admin_code', fileName), { content: last.content, updatedAt: serverTimestamp() });
-        editor.setValue(last.content);
-        statusMsg.textContent = '⏪ Rollback berhasil.';
-      } catch (e) {
-        console.error(e);
-        statusMsg.textContent = 'Rollback gagal.';
-      }
-    }
-
-    // ========== Preview / Export ==========
-    function runPreview() {
-      const f = fileSelect.value;
-      const content = editor.getValue();
-      const docw = previewFrame.contentWindow.document;
-      if (f.endsWith('.html')) {
-        docw.open();
-        docw.write(content);
-        docw.close();
-      } else {
-        // for js/css, show simple wrapper
-        const wrapper = `
-          <html><head>
-            ${f.endsWith('.css') ? `<style>${content}</style>` : ''}
-            ${f.endsWith('.js') ? `<script>${content}<\/script>` : ''}
-          </head><body>
-            <div style="padding:20px">Preview (${f}) — file non-HTML ditampilkan sebagai script/style.</div>
-          </body></html>`;
-        docw.open();
-        docw.write(wrapper);
-        docw.close();
-      }
-    }
-
-    function exportCurrentFile() {
-      const content = editor.getValue();
-      const fileName = fileSelect.value;
-      const blob = new Blob([content], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    }
-
-    // ========== Session control: sessions/current ==========
-    async function loadCurrentSession() {
-      try {
-        const curRef = doc(db, 'sessions', 'current');
-        const snap = await getDoc(curRef);
-        if (snap.exists()) {
-          const data = snap.data();
-          sessionIdInput.value = data.sessionId || '';
-          namaEventInput.value = data.name || '';
-          linkZoomInput.value = data.link_zoom || '';
-          linkYoutubeInput.value = data.link_youtube || '';
-          toggleAktif.checked = (data.status === 'aktif');
-          sessionStatus.textContent = 'Sesi dimuat: ' + (data.sessionId || '(belum diset)');
-        } else {
-          sessionStatus.textContent = 'Belum ada sesi yang dipublish.';
-        }
-      } catch (e) {
-        console.error(e);
-        sessionStatus.textContent = 'Gagal memuat sesi.';
-      }
-    }
-
-    async function saveSession() {
-      const obj = {
-        sessionId: sessionIdInput.value.trim() || null,
-        name: namaEventInput.value.trim() || null,
-        link_zoom: linkZoomInput.value.trim() || null,
-        link_youtube: linkYoutubeInput.value.trim() || null,
-        status: toggleAktif.checked ? 'aktif' : 'nonaktif',
-        updatedAt: serverTimestamp()
-      };
-      try {
-        await setDoc(doc(db, 'sessions', 'current'), obj);
-        sessionStatus.textContent = '✅ Sesi tersimpan & dipublish.';
-      } catch (e) {
-        console.error(e);
-        sessionStatus.textContent = 'Gagal menyimpan sesi.';
-      }
-    }
-
-    // ========== Events binding ==========
-    fileSelect.addEventListener('change', () => loadFile(fileSelect.value));
-    saveBtn.addEventListener('click', saveFileManual);
-    rollbackBtn.addEventListener('click', rollbackLatest);
-    runBtn.addEventListener('click', runPreview);
-    exportBtn.addEventListener('click', exportCurrentFile);
-    saveSessionBtn.addEventListener('click', saveSession);
-
-    // initial load if already logged in will be handled by auth state listener
+    loadAbsen();
+    setInterval(loadAbsen, 60000);
   </script>
 </body>
 </html>
