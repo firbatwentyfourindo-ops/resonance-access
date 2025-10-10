@@ -1,68 +1,77 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Admin Absen Mingguan</title>
+  <title>Admin Pelatihan</title>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDyx3hfM_49dQPWrYeKBuZ_5umRPGvTjLI",
+      authDomain: "greciaexperiment.firebaseapp.com",
+      projectId: "greciaexperiment",
+      storageBucket: "greciaexperiment.appspot.com",
+      messagingSenderId: "449936532510",
+      appId: "1:449936532510:web:9186754bceb92884c63a0f",
+      measurementId: "G-5R08SBGN4N"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      // load data setting
+      const docRef = doc(db, "setting_acara", "rabu_malam");
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        const d = snap.data();
+        document.getElementById("zoom").value = d.zoom_link;
+        document.getElementById("youtube").value = d.youtube_link;
+        document.getElementById("jadwal").value = d.jadwal_mulai;
+        document.getElementById("durasi").value = d.durasi_menit;
+      }
+
+      // tampilkan absen
+      const absRef = collection(db, "absensi");
+      const snaps = await getDocs(absRef);
+      const list = document.getElementById("absenList");
+      snaps.forEach(doc => {
+        const d = doc.data();
+        const li = document.createElement("li");
+        li.textContent = `${d.nama} - ${new Date(d.waktu_absen).toLocaleString("id-ID")}`;
+        list.appendChild(li);
+      });
+    });
+
+    async function simpanSetting() {
+      const zoom = document.getElementById("zoom").value;
+      const youtube = document.getElementById("youtube").value;
+      const jadwal = document.getElementById("jadwal").value;
+      const durasi = parseInt(document.getElementById("durasi").value);
+
+      await setDoc(doc(db, "setting_acara", "rabu_malam"), {
+        zoom_link: zoom,
+        youtube_link: youtube,
+        jadwal_mulai: jadwal,
+        durasi_menit: durasi
+      });
+
+      alert("Setting acara berhasil disimpan!");
+    }
+
+    window.simpanSetting = simpanSetting;
+  </script>
 </head>
 <body>
-  <h2>Admin - Rekap Absen Mingguan</h2>
-  <p>Data absen untuk minggu ini:</p>
-  <table border="1" cellpadding="4" cellspacing="0">
-    <thead>
-      <tr>
-        <th>Username</th>
-        <th>Tanggal</th>
-        <th>Tipe</th>
-        <th>Waktu</th>
-      </tr>
-    </thead>
-    <tbody id="absenList"></tbody>
-  </table>
-  <p id="info"></p>
+  <h2>Admin Panel</h2>
+  <h3>Atur Link Acara</h3>
+  <input id="zoom" placeholder="Link Zoom"><br>
+  <input id="youtube" placeholder="Link YouTube"><br>
+  <input id="jadwal" type="datetime-local"><br>
+  <input id="durasi" type="number" placeholder="Durasi menit"><br>
+  <button onclick="simpanSetting()">Simpan</button>
 
-  <script type="module">
-    import { db } from "./firebase-config.js";
-    import { doc, getDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
-
-    function getWeekNumber(d) {
-      d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-      const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-      return weekNo;
-    }
-
-    const now = new Date();
-    const week = getWeekNumber(now);
-    const year = now.getFullYear();
-    const absensiDoc = doc(db, "absensi", `minggu_${year}_${week}`);
-
-    const tbody = document.getElementById("absenList");
-    const info = document.getElementById("info");
-
-    async function loadAbsen() {
-      const docSnap = await getDoc(absensiDoc);
-      tbody.innerHTML = "";
-      if (docSnap.exists()) {
-        const data = docSnap.data().data || [];
-        data.sort((a, b) => new Date(b.waktu) - new Date(a.waktu));
-        data.forEach(d => {
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-            <td>${d.username}</td>
-            <td>${d.tanggal}</td>
-            <td>${d.tipe}</td>
-            <td>${new Date(d.waktu).toLocaleTimeString()}</td>
-          `;
-          tbody.appendChild(tr);
-        });
-        info.textContent = "Terakhir diperbarui: " + new Date().toLocaleTimeString();
-      } else {
-        info.textContent = "Belum ada data absen minggu ini.";
-      }
-    }
-
-    loadAbsen();
-    setInterval(loadAbsen, 60000);
-  </script>
+  <h3>Data Absensi</h3>
+  <ul id="absenList"></ul>
 </body>
 </html>
