@@ -21,15 +21,25 @@
 
     async function login() {
       const nama = document.getElementById("nama").value.trim();
-      if (!nama) return alert("Masukkan nama terlebih dahulu");
+      if (!nama) return alert("Masukkan nama terlebih dahulu.");
 
       const userRef = doc(db, "users", nama);
       const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
-        await setDoc(userRef, { nama: nama, pertama_login: new Date().toISOString() });
+        await setDoc(userRef, {
+          nama: nama,
+          dibuat: new Date().toISOString(),
+          aktif: true
+        });
         alert("Selamat datang pertama kali, " + nama);
       } else {
+        const data = userSnap.data();
+        if (data.aktif) {
+          alert("Anda sudah login di sesi lain. Silakan tunggu sesi sebelumnya berakhir.");
+          return;
+        }
+        await setDoc(userRef, { ...data, aktif: true }, { merge: true });
         alert("Selamat datang kembali, " + nama);
       }
 
