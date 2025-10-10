@@ -3,46 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login - Grecia Experiment</title>
+  <title>Login Kehadiran</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50 flex items-center justify-center min-h-screen">
   <div class="bg-white p-8 rounded-2xl shadow-md w-full max-w-sm">
-    <h2 class="text-2xl font-bold text-center mb-6">Masuk ke Akun</h2>
+    <h2 class="text-2xl font-bold text-center mb-6">Login Kehadiran</h2>
 
     <form id="loginForm" class="space-y-4">
       <div>
-        <label for="email" class="block text-gray-700">Email</label>
-        <input id="email" type="email" required
-          class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none">
-      </div>
-
-      <div>
-        <label for="password" class="block text-gray-700">Password</label>
-        <input id="password" type="password" required
-          class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none">
+        <label for="username" class="block text-gray-700">Masukkan Username</label>
+        <input id="username" type="text" required
+          class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
+          placeholder="contoh: peserta001">
       </div>
 
       <button id="loginButton" type="submit"
         class="w-full bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 transition-all">
         Masuk
       </button>
-
       <p id="errorMessage" class="text-red-500 text-sm text-center mt-2"></p>
     </form>
-
-    <p class="text-center text-sm text-gray-600 mt-4">
-      Belum punya akun?
-      <a href="register.html" class="text-blue-600 hover:underline">Daftar</a>
-    </p>
   </div>
 
-  <!-- Script Firebase Modular -->
   <script type="module">
-    // Import SDK Firebase Modular
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } 
-      from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 
     // --- Konfigurasi Firebase ---
     const firebaseConfig = {
@@ -55,48 +41,51 @@
       measurementId: "G-5R08SBGN4N"
     };
 
-    // --- Inisialisasi Firebase ---
     const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-    // --- Ambil elemen form ---
     const loginForm = document.getElementById("loginForm");
     const loginButton = document.getElementById("loginButton");
     const errorMessage = document.getElementById("errorMessage");
 
-    // --- Fungsi login ---
     loginForm.addEventListener("submit", async (e) => {
       e.preventDefault();
 
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value.trim();
+      const username = document.getElementById("username").value.trim().toLowerCase();
+      if (!username) return;
 
       loginButton.disabled = true;
       loginButton.textContent = "Memproses...";
 
       try {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
-        console.log("Login berhasil:", user.email);
+        const userRef = doc(db, "users", username);
+        const userSnap = await getDoc(userRef);
 
-        localStorage.setItem("userEmail", user.email);
+        if (!userSnap.exists()) {
+          await setDoc(userRef, {
+            username: username,
+            createdAt: new Date(),
+            lastLogin: new Date()
+          });
+        } else {
+          await setDoc(userRef, { lastLogin: new Date() }, { merge: true });
+        }
+
+        localStorage.setItem("username", username);
         window.location.href = "dashboard.html";
-      } catch (error) {
-        console.error(error);
-        errorMessage.textContent = "Email atau password salah.";
+      } catch (err) {
+        console.error(err);
+        errorMessage.textContent = "Terjadi kesalahan saat login.";
       } finally {
         loginButton.disabled = false;
         loginButton.textContent = "Masuk";
       }
     });
 
-    // --- Cek user masih login ---
-    onAuthStateChanged(auth, (user) => {
-      if (user) {
-        console.log("User masih login:", user.email);
-        window.location.href = "dashboard.html";
-      }
-    });
+    // Auto-login kalau sudah ada username tersimpan
+    if (localStorage.getItem("username")) {
+      window.location.href = "dashboard.html";
+    }
   </script>
 </body>
 </html>
