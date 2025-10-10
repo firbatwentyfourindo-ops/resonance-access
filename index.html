@@ -3,23 +3,48 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login Absensi</title>
+  <title>Login - Grecia Experiment</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <h2>Login Absensi</h2>
-  <form id="loginForm">
-    <label>Masukkan Username:</label><br>
-    <input type="text" id="username" placeholder="contoh: budi123" required>
-    <button type="submit">Masuk</button>
-  </form>
+<body class="bg-gray-50 flex items-center justify-center min-h-screen">
+  <div class="bg-white p-8 rounded-2xl shadow-md w-full max-w-sm">
+    <h2 class="text-2xl font-bold text-center mb-6">Masuk ke Akun</h2>
 
+    <form id="loginForm" class="space-y-4">
+      <div>
+        <label for="email" class="block text-gray-700">Email</label>
+        <input id="email" type="email" required
+          class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none">
+      </div>
+
+      <div>
+        <label for="password" class="block text-gray-700">Password</label>
+        <input id="password" type="password" required
+          class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none">
+      </div>
+
+      <button id="loginButton" type="submit"
+        class="w-full bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 transition-all">
+        Masuk
+      </button>
+
+      <p id="errorMessage" class="text-red-500 text-sm text-center mt-2"></p>
+    </form>
+
+    <p class="text-center text-sm text-gray-600 mt-4">
+      Belum punya akun?
+      <a href="register.html" class="text-blue-600 hover:underline">Daftar</a>
+    </p>
+  </div>
+
+  <!-- Script Firebase Modular -->
   <script type="module">
-    // --- Firebase Config milikmu ---
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-    import { 
-      getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp 
-    } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+    // Import SDK Firebase Modular
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } 
+      from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
 
+    // --- Konfigurasi Firebase ---
     const firebaseConfig = {
       apiKey: "AIzaSyDyx3hfM_49dQPWrYeKBuZ_5umRPGvTjLI",
       authDomain: "greciaexperiment.firebaseapp.com",
@@ -32,67 +57,44 @@
 
     // --- Inisialisasi Firebase ---
     const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    const auth = getAuth(app);
 
-    // --- Fungsi untuk membuat device ID (supaya user bisa dilacak) ---
-    function getDeviceId() {
-      let id = localStorage.getItem('device_id');
-      if (!id) {
-        id = crypto.randomUUID();
-        localStorage.setItem('device_id', id);
-      }
-      return id;
-    }
+    // --- Ambil elemen form ---
+    const loginForm = document.getElementById("loginForm");
+    const loginButton = document.getElementById("loginButton");
+    const errorMessage = document.getElementById("errorMessage");
 
-    // --- Auto redirect jika sudah login ---
-    const savedUser = localStorage.getItem('absen_username');
-    if (savedUser) {
-      window.location.href = "absen.html";
-    }
-
-    // --- Event submit form login ---
-    const form = document.getElementById("loginForm");
-    form.addEventListener("submit", async (e) => {
+    // --- Fungsi login ---
+    loginForm.addEventListener("submit", async (e) => {
       e.preventDefault();
 
-      const username = document.getElementById("username").value.trim();
-      if (!username) {
-        alert("Isi username dulu!");
-        return;
-      }
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value.trim();
 
-      const deviceId = getDeviceId();
-      const userRef = doc(db, "users", username);
+      loginButton.disabled = true;
+      loginButton.textContent = "Memproses...";
 
       try {
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-          // Jika user sudah ada, update waktu login terakhir
-          await updateDoc(userRef, {
-            last_login: serverTimestamp(),
-            device_id: deviceId
-          });
-          console.log("Login berhasil (update user).");
-        } else {
-          // Jika user baru, buat dokumen baru
-          await setDoc(userRef, {
-            created_at: serverTimestamp(),
-            last_login: serverTimestamp(),
-            device_id: deviceId,
-            total_absen: 0
-          });
-          console.log("User baru dibuat.");
-        }
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        console.log("Login berhasil:", user.email);
 
-        // Simpan ke localStorage agar tidak perlu login ulang
-        localStorage.setItem("absen_username", username);
+        localStorage.setItem("userEmail", user.email);
+        window.location.href = "dashboard.html";
+      } catch (error) {
+        console.error(error);
+        errorMessage.textContent = "Email atau password salah.";
+      } finally {
+        loginButton.disabled = false;
+        loginButton.textContent = "Masuk";
+      }
+    });
 
-        // Arahkan ke halaman absen
-        window.location.href = "absen.html";
-
-      } catch (err) {
-        console.error("Gagal login:", err);
-        alert("Terjadi kesalahan saat login, cek console.");
+    // --- Cek user masih login ---
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log("User masih login:", user.email);
+        window.location.href = "dashboard.html";
       }
     });
   </script>
