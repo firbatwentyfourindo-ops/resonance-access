@@ -1,44 +1,62 @@
 <!DOCTYPE html>
-<html lang="id">
+<html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login Absen</title>
-  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="flex items-center justify-center h-screen bg-gray-100">
-  <div class="bg-white p-8 rounded-2xl shadow-md w-80 text-center">
-    <h2 class="text-2xl font-bold mb-6">Login Absen</h2>
-    <input id="username" type="text" placeholder="Masukkan Username"
-      class="border border-gray-300 w-full p-2 rounded mb-4 text-center focus:outline-none">
-    <button id="loginBtn"
-      class="bg-blue-600 hover:bg-blue-700 text-white w-full py-2 rounded font-semibold">Masuk</button>
-    <p id="status" class="text-sm text-gray-600 mt-3"></p>
-  </div>
+<body>
+  <h2>Login Absen Pelatihan</h2>
+  <p>Masukkan nama Anda:</p>
+  <input type="text" id="username">
+  <button id="loginBtn">Login</button>
+  <p id="status"></p>
 
   <script type="module">
     import { db } from "./firebase-config.js";
-    import { collection, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+    import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-    const btn = document.getElementById('loginBtn');
+    const loginBtn = document.getElementById('loginBtn');
     const usernameInput = document.getElementById('username');
     const status = document.getElementById('status');
 
-    btn.addEventListener('click', async () => {
+    // Jika user sudah pernah login sebelumnya, langsung ke dashboard
+    const storedName = localStorage.getItem('username');
+    if (storedName) {
+      status.textContent = "Kamu sudah login sebagai " + storedName + ". Mengalihkan...";
+      setTimeout(() => window.location.href = "dashboard.html", 1500);
+    }
+
+    loginBtn.onclick = async () => {
       const username = usernameInput.value.trim();
-      if (!username) return alert("Masukkan username terlebih dahulu!");
+      if (!username) {
+        alert("Nama tidak boleh kosong");
+        return;
+      }
 
-      localStorage.setItem("username", username);
+      const userRef = doc(db, "users", username);
+      const docSnap = await getDoc(userRef);
 
-      const userRef = doc(collection(db, "users"), username);
-      await setDoc(userRef, {
-        username: username,
-        lastLogin: new Date().toISOString()
-      }, { merge: true });
-
-      status.textContent = "Berhasil login, masuk ke dashboard...";
-      setTimeout(() => window.location.href = "dashboard.html", 1200);
-    });
+      if (docSnap.exists()) {
+        // Sudah ada, periksa apakah nama sama dengan localStorage
+        const existingName = docSnap.data().username;
+        if (storedName && storedName !== existingName) {
+          status.textContent = "Nama tidak cocok. Kamu harus login dengan nama: " + existingName;
+          return;
+        }
+        localStorage.setItem("username", existingName);
+        status.textContent = "Login berhasil, masuk ke dashboard...";
+        setTimeout(() => window.location.href = "dashboard.html", 1000);
+      } else {
+        // Belum ada -> buat baru
+        await setDoc(userRef, {
+          username: username,
+          firstLogin: new Date().toISOString()
+        });
+        localStorage.setItem("username", username);
+        status.textContent = "Akun baru dibuat. Masuk ke dashboard...";
+        setTimeout(() => window.location.href = "dashboard.html", 1000);
+      }
+    };
   </script>
 </body>
 </html>
