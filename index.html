@@ -4,15 +4,40 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Login Peserta</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
 </head>
-<body>
-  <h2 id="title">Selamat datang, peserta</h2>
+<body class="bg-gray-100">
 
-  <div id="loginPanel">
-    <label for="username">Masukkan nama/username (wajib sekali untuk seterusnya):</label><br/>
-    <input id="username" type="text" placeholder="Nama Anda" autocomplete="off"/><br/>
-    <button id="btnLogin">Login</button>
-    <p id="msg" style="color:red"></p>
+  <div class="min-h-screen flex items-center justify-center px-4">
+    <div class="bg-white p-8 rounded-2xl shadow-lg w-full max-w-md">
+      
+      <!-- Judul -->
+      <h2 id="title" class="text-2xl font-bold text-center text-gray-800 mb-6">Selamat datang, peserta</h2>
+
+      <!-- Panel Login -->
+      <div id="loginPanel">
+        <label for="username" class="block text-gray-700 text-sm font-semibold mb-2">Masukkan nama/username Anda:</label>
+        <input id="username" type="text" placeholder="Nama Anda" autocomplete="off" class="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 ease-in-out"/>
+        
+        <button id="btnLogin" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-200 mt-6 disabled:bg-gray-400 disabled:cursor-not-allowed">
+          Login
+        </button>
+
+        <!-- Pesan Error/Status -->
+        <p id="msg" class="text-red-500 text-sm mt-4 text-center h-5"></p>
+      </div>
+
+    </div>
   </div>
 
   <script type="module">
