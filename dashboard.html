@@ -1,12 +1,28 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <title>Dashboard Pelatihan</title>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getFirestore, doc, getDoc, setDoc, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard Peserta</title>
+</head>
+<body>
+  <h2 id="welcome">Dashboard</h2>
 
+  <div>
+    <button id="btnYouTube">Akses Streaming YouTube</button>
+    <button id="btnZoom">Akses Streaming Zoom</button>
+  </div>
+
+  <div>
+    <button id="btnCheckIn">Saya hadir hari ini</button>
+    <p id="info"></p>
+  </div>
+
+  <div>
+    <button id="logout">Logout (clear local device data)</button>
+  </div>
+
+  <script type="module">
     const firebaseConfig = {
       apiKey: "AIzaSyDyx3hfM_49dQPWrYeKBuZ_5umRPGvTjLI",
       authDomain: "greciaexperiment.firebaseapp.com",
@@ -16,56 +32,107 @@
       appId: "1:449936532510:web:9186754bceb92884c63a0f",
       measurementId: "G-5R08SBGN4N"
     };
+
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import {
+      getFirestore, doc, getDoc, setDoc, serverTimestamp, collection, getDocs
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    const namaUser = sessionStorage.getItem("namaUser");
-    if (!namaUser) window.location.href = "index.html";
+    function getDeviceId(){
+      return localStorage.getItem('gmi_device_id');
+    }
+    function getUsername(){
+      return localStorage.getItem('gmi_username');
+    }
 
-    document.addEventListener("DOMContentLoaded", async () => {
-      document.getElementById("namaUser").textContent = namaUser;
+    const username = getUsername();
+    const deviceId = getDeviceId();
+    const welcome = document.getElementById('welcome');
+    const btnYouTube = document.getElementById('btnYouTube');
+    const btnZoom = document.getElementById('btnZoom');
+    const btnCheckIn = document.getElementById('btnCheckIn');
+    const info = document.getElementById('info');
+    const btnLogout = document.getElementById('logout');
 
-      // Ambil setting link acara
-      const settingRef = doc(db, "setting_acara", "rabu_malam");
-      const settingSnap = await getDoc(settingRef);
-      if (settingSnap.exists()) {
-        const data = settingSnap.data();
-        document.getElementById("zoom").href = data.zoom_link || "#";
-        document.getElementById("youtube").href = data.youtube_link || "#";
+    if(!username || !deviceId){
+      alert('Anda belum login. Arahkan ke halaman login.');
+      location.href = 'login.html';
+    } else {
+      welcome.innerText = `Halo, ${username}`;
+    }
+
+    // Helper: today's key (YYYY-MM-DD)
+    function ymdKey(d=new Date()){
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const dd = String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${dd}`;
+    }
+
+    async function loadLinksAndBind(){
+      const settingsRef = doc(db, 'settings', 'dashboardLinks');
+      const snap = await getDoc(settingsRef);
+      let youtube = '#', zoom = '#';
+      if(snap.exists()){
+        const data = snap.data();
+        youtube = data.youtube || youtube;
+        zoom = data.zoom || zoom;
       }
+      btnYouTube.onclick = ()=>{ window.open(youtube, '_blank'); };
+      btnZoom.onclick = ()=>{ window.open(zoom, '_blank'); };
+    }
 
-      // Catat absen otomatis
-      await addDoc(collection(db, "absensi"), {
-        nama: namaUser,
-        waktu_absen: new Date().toISOString()
-      });
+    // Check-in: write to collection attendance/{YYYY-MM-DD}/attendees/{username}
+    async function checkIn(){
+      const key = ymdKey();
+      const attendeeRef = doc(db, 'attendance', key, 'attendees', username);
+      await setDoc(attendeeRef, {
+        username,
+        deviceId,
+        present: true,
+        checkedAt: serverTimestamp()
+      }, { merge: true });
+      info.innerText = `Terima kasih ${username}, kehadiran hari ini dicatat. (${key})`;
+    }
 
-      // Timer logout otomatis setelah 5 menit
-      let countdown = 300; // detik
-      const interval = setInterval(async () => {
-        countdown--;
-        document.getElementById("timer").textContent = countdown + " detik lagi sebelum logout otomatis";
-
-        if (countdown <= 0) {
-          clearInterval(interval);
-          await setDoc(doc(db, "users", namaUser), { aktif: false }, { merge: true });
-          alert("Sesi Anda telah berakhir. Terima kasih sudah mengikuti acara.");
-          sessionStorage.clear();
-          window.location.href = "login.html";
-        }
-      }, 1000);
+    btnCheckIn.addEventListener('click', async ()=>{
+      btnCheckIn.disabled = true;
+      try{
+        await checkIn();
+      }catch(e){
+        console.error(e);
+        info.innerText = 'Gagal mencatat kehadiran.';
+      }
+      btnCheckIn.disabled = false;
     });
+
+    btnLogout.addEventListener('click', ()=>{
+      // Clear local device storage (but does not delete Firestore bindings)
+      localStorage.removeItem('gmi_username');
+      // keep deviceId to maintain binding (optional you may remove deviceId too)
+      // localStorage.removeItem('gmi_device_id');
+      location.href = 'login.html';
+    });
+
+    // On load
+    (async function(){
+      await loadLinksAndBind();
+      // check if already checked-in today
+      try{
+        const key = ymdKey();
+        const attendeeRef = doc(db, 'attendance', key, 'attendees', username);
+        const snap = await getDoc(attendeeRef);
+        if(snap.exists() && snap.data().present){
+          info.innerText = `Anda sudah hadir hari ini (${key}).`;
+        }
+      }catch(e){
+        console.error(e);
+      }
+    })();
+
   </script>
-</head>
-<body>
-  <h2>Dashboard Peserta</h2>
-  <p>Selamat datang, <b id="namaUser"></b></p>
-  <p>Sesi Anda akan berakhir dalam: <span id="timer">300 detik</span></p>
-  <p>
-    <a id="zoom" target="_blank">Ikuti Acara via Zoom</a><br>
-    <a id="youtube" target="_blank">Ikuti Acara via YouTube</a>
-  </p>
-  <p>Pastikan Anda tetap berada di halaman ini selama acara berlangsung untuk pencatatan kehadiran yang sah.</p>
-  <button onclick="sessionStorage.clear();window.location='login.html'">Logout Manual</button>
 </body>
 </html>
