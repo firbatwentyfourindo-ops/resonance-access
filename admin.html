@@ -1,34 +1,33 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Admin Panel</title>
+  <meta charset="UTF-8">
+  <title>Admin Absensi</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
-  <h2>Admin - Panel Pengecekan & Pengaturan Link</h2>
+  <h2>Admin Absensi</h2>
 
-  <section>
-    <h3>Atur link dashboard (YouTube / Zoom)</h3>
-    <label>YouTube: <input id="inYoutube" type="text" style="width:400px"/></label><br/>
-    <label>Zoom: <input id="inZoom" type="text" style="width:400px"/></label><br/>
-    <button id="saveLinks">Simpan Links</button>
-    <p id="saveMsg"></p>
-  </section>
+  <div>
+    <label>Pilih tanggal:</label>
+    <input type="date" id="tanggalInput">
+    <button id="tampilkanBtn">Tampilkan Kehadiran</button>
+    <button id="downloadPdfBtn">Unduh PDF</button>
+  </div>
 
-  <hr/>
+  <h3>Daftar Hadir:</h3>
+  <ul id="daftarHadir"></ul>
 
-  <section>
-    <h3>Cek kehadiran</h3>
-    <label for="dateFrom">Dari (YYYY-MM-DD):</label>
-    <input id="dateFrom" placeholder="2025-10-01"/>
-    <label for="dateTo">Sampai (YYYY-MM-DD):</label>
-    <input id="dateTo" placeholder="2025-10-11"/>
-    <button id="btnLoad">Tampilkan</button>
-    <div id="report"></div>
-  </section>
+  <h3>Ubah Link Dashboard:</h3>
+  <label>Link YouTube:</label><br>
+  <input type="text" id="youtubeLink" placeholder="Masukkan link YouTube"><br><br>
+  <label>Link Zoom:</label><br>
+  <input type="text" id="zoomLink" placeholder="Masukkan link Zoom"><br><br>
+  <button id="simpanLinkBtn">Simpan Link</button>
 
-  <script type="module">
+  <script>
     const firebaseConfig = {
       apiKey: "AIzaSyDyx3hfM_49dQPWrYeKBuZ_5umRPGvTjLI",
       authDomain: "greciaexperiment.firebaseapp.com",
@@ -39,115 +38,87 @@
       measurementId: "G-5R08SBGN4N"
     };
 
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-    import {
-      getFirestore, doc, setDoc, getDoc, collection, getDocs, query, where, orderBy
-    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    const daftarHadir = document.getElementById("daftarHadir");
+    const tampilkanBtn = document.getElementById("tampilkanBtn");
+    const downloadPdfBtn = document.getElementById("downloadPdfBtn");
 
-    const inYoutube = document.getElementById('inYoutube');
-    const inZoom = document.getElementById('inZoom');
-    const saveLinks = document.getElementById('saveLinks');
-    const saveMsg = document.getElementById('saveMsg');
-    const dateFrom = document.getElementById('dateFrom');
-    const dateTo = document.getElementById('dateTo');
-    const btnLoad = document.getElementById('btnLoad');
-    const report = document.getElementById('report');
+    const youtubeLinkInput = document.getElementById("youtubeLink");
+    const zoomLinkInput = document.getElementById("zoomLink");
+    const simpanLinkBtn = document.getElementById("simpanLinkBtn");
 
-    // Load existing links on init
-    (async function loadLinks(){
-      try{
-        const settingsRef = doc(db, 'settings', 'dashboardLinks');
-        const snap = await getDoc(settingsRef);
-        if(snap.exists()){
-          const d = snap.data();
-          inYoutube.value = d.youtube || '';
-          inZoom.value = d.zoom || '';
-        }
-      }catch(e){ console.error(e); }
-    })();
+    // Simpan link streaming
+    simpanLinkBtn.addEventListener("click", async () => {
+      const yt = youtubeLinkInput.value.trim();
+      const zoom = zoomLinkInput.value.trim();
+      if (!yt || !zoom) return alert("Isi semua link!");
 
-    saveLinks.addEventListener('click', async ()=>{
-      saveLinks.disabled = true;
-      try{
-        await setDoc(doc(db,'settings','dashboardLinks'), {
-          youtube: inYoutube.value.trim(),
-          zoom: inZoom.value.trim(),
-          updatedAt: new Date()
-        }, { merge: true });
-        saveMsg.innerText = 'Tersimpan.';
-      }catch(e){
-        console.error(e);
-        saveMsg.innerText = 'Gagal menyimpan.';
-      }
-      saveLinks.disabled = false;
-      setTimeout(()=>saveMsg.innerText = '', 3000);
+      await db.collection("streamingLinks").doc("current").set({
+        youtube: yt,
+        zoom: zoom,
+        updatedAt: new Date().toISOString()
+      });
+
+      alert("Link berhasil disimpan!");
     });
 
-    // Utility: iterate dates between from and to inclusive
-    function enumerateDates(startYmd, endYmd){
-      const res = [];
-      const s = new Date(startYmd);
-      const e = new Date(endYmd);
-      for(let d = new Date(s); d <= e; d.setDate(d.getDate()+1)){
-        const y = d.getFullYear();
-        const m = String(d.getMonth()+1).padStart(2,'0');
-        const dd = String(d.getDate()).padStart(2,'0');
-        res.push(`${y}-${m}-${dd}`);
-      }
-      return res;
-    }
+    // Tampilkan kehadiran berdasarkan tanggal
+    tampilkanBtn.addEventListener("click", async () => {
+      daftarHadir.innerHTML = "";
+      const tanggal = document.getElementById("tanggalInput").value;
+      if (!tanggal) return alert("Pilih tanggal dulu.");
 
-    btnLoad.addEventListener('click', async ()=>{
-      report.innerHTML = '';
-      const from = (dateFrom.value || '').trim();
-      const to = (dateTo.value || '').trim();
-      if(!from || !to){ alert('Isi tanggal dari dan sampai (YYYY-MM-DD)'); return; }
-      const keys = enumerateDates(from, to);
-      report.innerHTML = `<p>Menampilkan ${keys.length} hari</p>`;
-      for(const key of keys){
-        try{
-          const attendeesColl = collection(db, 'attendance', key, 'attendees');
-          const snaps = await getDocs(attendeesColl);
-          const rows = [];
-          snaps.forEach(s=> rows.push(s.data()));
-          // Show summary for that day
-          const presentCount = rows.filter(r => r.present).length;
-          const html = document.createElement('div');
-          html.style.border = '1px solid #ccc';
-          html.style.margin = '8px 0';
-          html.style.padding = '8px';
-          html.innerHTML = `<strong>${key}</strong> — Hadir: ${presentCount}, Total catatan: ${rows.length}
-            <br/><button data-key="${key}" class="btnDetail">Detil</button>
-            <div class="detil" id="detil-${key}" style="display:none;margin-top:8px"></div>`;
-          report.appendChild(html);
-          html.querySelector('.btnDetail').addEventListener('click', async (ev)=>{
-            const k = ev.currentTarget.dataset.key;
-            const det = document.getElementById('detil-'+k);
-            if(det.style.display === 'none'){
-              // load details (already loaded rows)
-              det.style.display = 'block';
-              if(det.innerHTML.trim()===''){
-                if(rows.length===0){ det.innerHTML = '<i>Tidak ada catatan</i>'; return; }
-                let t = '<ul>';
-                for(const r of rows){
-                  t += `<li>${r.username} — present:${r.present ? 'YA' : 'TIDAK'} ${r.checkedAt ? '' : ''}</li>`;
-                }
-                t += '</ul>';
-                det.innerHTML = t;
-              }
-            } else {
-              det.style.display = 'none';
-            }
-          });
-        }catch(e){
-          console.error(e);
-        }
+      const q = await db.collection("absensi")
+        .where("tanggal", "==", tanggal)
+        .orderBy("waktu", "asc")
+        .get();
+
+      if (q.empty) {
+        daftarHadir.innerHTML = "<li>Tidak ada data hadir di tanggal ini.</li>";
+        return;
       }
+
+      q.forEach(doc => {
+        const data = doc.data();
+        const li = document.createElement("li");
+        li.textContent = `${data.username} - Hadir (${data.waktu})`;
+        daftarHadir.appendChild(li);
+      });
     });
 
+    // Unduh PDF daftar hadir
+    downloadPdfBtn.addEventListener("click", async () => {
+      const tanggal = document.getElementById("tanggalInput").value;
+      if (!tanggal) return alert("Pilih tanggal dulu sebelum unduh.");
+
+      const q = await db.collection("absensi")
+        .where("tanggal", "==", tanggal)
+        .orderBy("waktu", "asc")
+        .get();
+
+      if (q.empty) return alert("Tidak ada data untuk tanggal ini.");
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFontSize(14);
+      doc.text(`Daftar Hadir Pelatihan (${tanggal})`, 10, 15);
+      doc.setFontSize(12);
+
+      let y = 25;
+      let i = 1;
+
+      q.forEach(d => {
+        const data = d.data();
+        doc.text(`${i}. ${data.username} - Hadir (${data.waktu})`, 10, y);
+        y += 8;
+        i++;
+        if (y > 270) { doc.addPage(); y = 15; }
+      });
+
+      doc.save(`daftar-hadir-${tanggal}.pdf`);
+    });
   </script>
 </body>
 </html>
