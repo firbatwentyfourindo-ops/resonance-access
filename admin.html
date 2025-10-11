@@ -1,33 +1,69 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <title>Admin Absensi</title>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard Peserta</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    /* Menambahkan sedikit transisi untuk tombol */
+    button {
+      transition: background-color 0.2s ease-in-out, opacity 0.2s ease-in-out;
+    }
+  </style>
 </head>
-<body>
-  <h2>Admin Absensi</h2>
+<body class="bg-gray-100">
 
-  <div>
-    <label>Pilih tanggal:</label>
-    <input type="date" id="tanggalInput">
-    <button id="tampilkanBtn">Tampilkan Kehadiran</button>
-    <button id="downloadPdfBtn">Unduh PDF</button>
+  <div class="min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white p-8 rounded-2xl shadow-lg w-full max-w-lg">
+      
+      <!-- Header Selamat Datang -->
+      <h2 id="welcome" class="text-3xl font-bold text-gray-800 mb-2">Dashboard</h2>
+      <p class="text-gray-500 mb-6">Selamat datang kembali! Silakan catat kehadiran Anda untuk melanjutkan.</p>
+      <hr class="mb-6"/>
+
+      <!-- Bagian Kehadiran -->
+      <div class="text-center mb-8">
+        <button id="btnHadir" class="bg-green-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 disabled:bg-gray-400 disabled:cursor-not-allowed text-lg">
+          Saya Hadir!
+        </button>
+        <p id="info" class="text-gray-600 mt-3 h-6"></p> <!-- Tinggi tetap untuk menghindari pergeseran layout -->
+      </div>
+
+      <!-- Bagian Akses Link -->
+      <div>
+        <h3 class="text-lg font-semibold text-gray-700 mb-4 text-center">Akses Materi</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Tombol YouTube -->
+          <button id="btnYT" disabled class="flex items-center justify-center gap-2 w-full bg-red-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 disabled:bg-gray-400/80 disabled:cursor-not-allowed">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span>Akses YouTube</span>
+          </button>
+          <!-- Tombol Zoom -->
+          <button id="btnZoom" disabled class="flex items-center justify-center gap-2 w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:bg-gray-400/80 disabled:cursor-not-allowed">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+            <span>Akses Zoom</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  
+  <!-- Peringatan Logout Otomatis -->
+  <div id="logout-warning" class="hidden fixed bottom-4 right-4 bg-yellow-500 text-gray-800 p-4 rounded-lg shadow-xl animate-pulse">
+    Sesi Anda akan berakhir dalam 15 detik.
   </div>
 
-  <h3>Daftar Hadir:</h3>
-  <ul id="daftarHadir"></ul>
-
-  <h3>Ubah Link Dashboard:</h3>
-  <label>Link YouTube:</label><br>
-  <input type="text" id="youtubeLink" placeholder="Masukkan link YouTube"><br><br>
-  <label>Link Zoom:</label><br>
-  <input type="text" id="zoomLink" placeholder="Masukkan link Zoom"><br><br>
-  <button id="simpanLinkBtn">Simpan Link</button>
-
-  <script>
+  <script type="module">
     const firebaseConfig = {
       apiKey: "AIzaSyDyx3hfM_49dQPWrYeKBuZ_5umRPGvTjLI",
       authDomain: "greciaexperiment.firebaseapp.com",
@@ -37,88 +73,103 @@
       appId: "1:449936532510:web:9186754bceb92884c63a0f",
       measurementId: "G-5R08SBGN4N"
     };
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import {
+      getFirestore, doc, getDoc, setDoc, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
-    const app = firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-    const daftarHadir = document.getElementById("daftarHadir");
-    const tampilkanBtn = document.getElementById("tampilkanBtn");
-    const downloadPdfBtn = document.getElementById("downloadPdfBtn");
+    const username = localStorage.getItem('gmi_username');
+    const deviceId = localStorage.getItem('gmi_device_id');
+    if(!username || !deviceId){location.href='./index.html';}
 
-    const youtubeLinkInput = document.getElementById("youtubeLink");
-    const zoomLinkInput = document.getElementById("zoomLink");
-    const simpanLinkBtn = document.getElementById("simpanLinkBtn");
+    const welcome=document.getElementById('welcome');
+    const btnHadir=document.getElementById('btnHadir');
+    const info=document.getElementById('info');
+    const btnYT=document.getElementById('btnYT');
+    const btnZoom=document.getElementById('btnZoom');
 
-    // Simpan link streaming
-    simpanLinkBtn.addEventListener("click", async () => {
-      const yt = youtubeLinkInput.value.trim();
-      const zoom = zoomLinkInput.value.trim();
-      if (!yt || !zoom) return alert("Isi semua link!");
+    welcome.innerText=`Halo, ${username}`;
 
-      await db.collection("streamingLinks").doc("current").set({
-        youtube: yt,
-        zoom: zoom,
-        updatedAt: new Date().toISOString()
-      });
+    // helper: key date
+    function ymdKey(d=new Date()){
+      const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${dd}`;
+    }
 
-      alert("Link berhasil disimpan!");
-    });
+    async function getLinks(){
+      const ref=doc(db,'settings','dashboardLinks');
+      const s=await getDoc(ref);
+      if(s.exists()){
+        const d=s.data();
+        return {yt:d.youtube||'#',zoom:d.zoom||'#'};
+      } return {yt:'#',zoom:'#'};
+    }
 
-    // Tampilkan kehadiran berdasarkan tanggal
-    tampilkanBtn.addEventListener("click", async () => {
-      daftarHadir.innerHTML = "";
-      const tanggal = document.getElementById("tanggalInput").value;
-      if (!tanggal) return alert("Pilih tanggal dulu.");
+    // check-in (once per 6h)
+    async function canCheckIn(){
+      const last=localStorage.getItem('last_checkin');
+      if(!last)return true;
+      const lastTime=Number(last);
+      const now=Date.now();
+      return now-lastTime>6*60*60*1000;
+    }
 
-      const q = await db.collection("absensi")
-        .where("tanggal", "==", tanggal)
-        .orderBy("waktu", "asc")
-        .get();
+    async function markCheckIn(){
+      const key=ymdKey();
+      await setDoc(doc(db,'attendance',key,'attendees',username),{
+        username,deviceId,present:true,checkedAt:serverTimestamp()
+      },{merge:true});
+      localStorage.setItem('last_checkin',Date.now());
+    }
 
-      if (q.empty) {
-        daftarHadir.innerHTML = "<li>Tidak ada data hadir di tanggal ini.</li>";
-        return;
+    async function init(){
+      const {yt,zoom}=await getLinks();
+      btnYT.onclick=()=>window.open(yt,'_blank');
+      btnZoom.onclick=()=>window.open(zoom,'_blank');
+      // cek status checkin
+      const ok=await canCheckIn();
+      if(!ok){
+        btnHadir.disabled=true;
+        btnYT.disabled=false;
+        btnZoom.disabled=false;
+        info.innerText='Anda sudah hadir dalam 6 jam terakhir.';
       }
+    }
 
-      q.forEach(doc => {
-        const data = doc.data();
-        const li = document.createElement("li");
-        li.textContent = `${data.username} - Hadir (${data.waktu})`;
-        daftarHadir.appendChild(li);
-      });
-    });
+    btnHadir.onclick=async()=>{
+      const ok=await canCheckIn();
+      if(!ok){info.innerText='Anda sudah klik hadir sebelumnya.';return;}
+      btnHadir.disabled=true;
+      try{
+        await markCheckIn();
+        info.innerText='Kehadiran dicatat. Akses dibuka.';
+        btnYT.disabled=false;
+        btnZoom.disabled=false;
+      }catch(e){
+        console.error(e);info.innerText='Gagal mencatat kehadiran.';
+      }
+    }
 
-    // Unduh PDF daftar hadir
-    downloadPdfBtn.addEventListener("click", async () => {
-      const tanggal = document.getElementById("tanggalInput").value;
-      if (!tanggal) return alert("Pilih tanggal dulu sebelum unduh.");
+    // Auto logout timer (25 menit) dengan peringatan
+    const LOGOUT_DURATION = 25 * 60 * 1000;
+    const WARNING_BEFORE_LOGOUT = 15 * 1000; // 15 detik
 
-      const q = await db.collection("absensi")
-        .where("tanggal", "==", tanggal)
-        .orderBy("waktu", "asc")
-        .get();
+    // Timer untuk menampilkan peringatan
+    setTimeout(() => {
+        document.getElementById('logout-warning').classList.remove('hidden');
+    }, LOGOUT_DURATION - WARNING_BEFORE_LOGOUT);
 
-      if (q.empty) return alert("Tidak ada data untuk tanggal ini.");
+    // Timer untuk logout
+    setTimeout(()=>{
+      localStorage.removeItem('gmi_username');
+      location.href='./index.html';
+    }, LOGOUT_DURATION);
 
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-      doc.setFontSize(14);
-      doc.text(`Daftar Hadir Pelatihan (${tanggal})`, 10, 15);
-      doc.setFontSize(12);
-
-      let y = 25;
-      let i = 1;
-
-      q.forEach(d => {
-        const data = d.data();
-        doc.text(`${i}. ${data.username} - Hadir (${data.waktu})`, 10, y);
-        y += 8;
-        i++;
-        if (y > 270) { doc.addPage(); y = 15; }
-      });
-
-      doc.save(`daftar-hadir-${tanggal}.pdf`);
-    });
+    init();
   </script>
 </body>
 </html>
+
