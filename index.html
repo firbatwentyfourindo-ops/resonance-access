@@ -1,12 +1,22 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <title>Login Pelatihan</title>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Login Peserta</title>
+</head>
+<body>
+  <h2 id="title">Selamat datang, peserta</h2>
 
+  <div id="loginPanel">
+    <label for="username">Masukkan nama/username (wajib sekali untuk seterusnya):</label><br/>
+    <input id="username" type="text" placeholder="Nama Anda" autocomplete="off"/><br/>
+    <button id="btnLogin">Login</button>
+    <p id="msg" style="color:red"></p>
+  </div>
+
+  <script type="module">
+    // Firebase config (dari user)
     const firebaseConfig = {
       apiKey: "AIzaSyDyx3hfM_49dQPWrYeKBuZ_5umRPGvTjLI",
       authDomain: "greciaexperiment.firebaseapp.com",
@@ -16,60 +26,126 @@
       appId: "1:449936532510:web:9186754bceb92884c63a0f",
       measurementId: "G-5R08SBGN4N"
     };
+
+    // Firebase v9 modular import via CDN
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import {
+      getFirestore, doc, setDoc, getDoc, serverTimestamp, updateDoc
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    document.addEventListener("DOMContentLoaded", () => {
-      const namaTersimpan = localStorage.getItem("namaTetap");
-      if (namaTersimpan) {
-        document.getElementById("nama").value = namaTersimpan;
-        document.getElementById("nama").disabled = true;
-        document.getElementById("info").textContent = 
-          "Nama Anda telah dikunci sebagai: " + namaTersimpan;
+    // Helpers
+    function getDeviceId(){
+      let id = localStorage.getItem('gmi_device_id');
+      if(!id){
+        try{
+          id = crypto.randomUUID();
+        }catch(e){
+          id = 'dev-' + Date.now() + '-' + Math.floor(Math.random()*100000);
+        }
+        localStorage.setItem('gmi_device_id', id);
+      }
+      return id;
+    }
+
+    const deviceId = getDeviceId();
+    const usernameEl = document.getElementById('username');
+    const btnLogin = document.getElementById('btnLogin');
+    const msg = document.getElementById('msg');
+    const title = document.getElementById('title');
+
+    // On load: if device already bound, change title & placeholder
+    (async function init(){
+      try{
+        const deviceDocRef = doc(db, 'devices', deviceId);
+        const snap = await getDoc(deviceDocRef);
+        if(snap.exists()){
+          const data = snap.data();
+          title.innerText = `Selamat datang, ${data.username}`;
+          usernameEl.placeholder = `Isi kolom login dengan nama anda (${data.username})`;
+        } else {
+          title.innerText = `Selamat datang, peserta`;
+          usernameEl.placeholder = `Nama Anda (akan disimpan untuk seterusnya)`;
+        }
+      }catch(e){
+        console.error(e);
+      }
+    })();
+
+    async function showMsg(t){
+      msg.innerText = t;
+      setTimeout(()=>{ msg.innerText = ''; }, 5000);
+    }
+
+    btnLogin.addEventListener('click', async ()=>{
+      const username = (usernameEl.value || '').trim();
+      if(!username){
+        showMsg('Nama tidak boleh kosong.');
+        return;
+      }
+      btnLogin.disabled = true;
+
+      try{
+        // 1) Check if this device already bound
+        const deviceRef = doc(db, 'devices', deviceId);
+        const deviceSnap = await getDoc(deviceRef);
+        if(deviceSnap.exists()){
+          const dev = deviceSnap.data();
+          if(dev.username !== username){
+            // Device already claimed another username -> disallow switching
+            showMsg(`Perangkat ini sudah terdaftar sebagai "${dev.username}". Anda tidak bisa mengganti nama pada perangkat ini.`);
+            btnLogin.disabled = false;
+            return;
+          }
+          // else device username matches -> update lastSeen and proceed to dashboard
+          await updateDoc(deviceRef, { lastSeen: serverTimestamp() });
+          localStorage.setItem('gmi_username', username);
+          location.href = 'dashboard.html';
+          return;
+        }
+
+        // 2) Device not bound yet. Check if username already claimed by other device
+        const participantRef = doc(db, 'participants', username);
+        const partSnap = await getDoc(participantRef);
+        if(partSnap.exists()){
+          const pd = partSnap.data();
+          if(pd.deviceId && pd.deviceId !== deviceId){
+            showMsg(`Nama "${username}" sudah diklaim oleh perangkat lain. Gunakan nama lain atau hubungi admin.`);
+            btnLogin.disabled = false;
+            return;
+          }
+          // If exists but deviceId empty (unlikely), claim it.
+        }
+
+        // 3) All good: create / update participants and create device mapping
+        await setDoc(participantRef, {
+          username,
+          deviceId,
+          createdAt: serverTimestamp(),
+          lastLogin: serverTimestamp()
+        }, { merge: true });
+
+        await setDoc(deviceRef, {
+          deviceId,
+          username,
+          createdAt: serverTimestamp(),
+          lastSeen: serverTimestamp()
+        }, { merge: true });
+
+        localStorage.setItem('gmi_username', username);
+        location.href = 'dashboard.html';
+
+      }catch(err){
+        console.error(err);
+        showMsg('Kesalahan saat login. Coba lagi.');
+        btnLogin.disabled = false;
       }
     });
 
-    async function login() {
-      const namaInput = document.getElementById("nama").value.trim();
-      if (!namaInput) return alert("Masukkan nama terlebih dahulu.");
-
-      const namaTersimpan = localStorage.getItem("namaTetap");
-      if (namaTersimpan && namaInput !== namaTersimpan) {
-        return alert(`Nama Anda dikunci sebagai "${namaTersimpan}". Anda tidak bisa menggunakan nama lain.`);
-      }
-
-      const userRef = doc(db, "users", namaInput);
-      const userSnap = await getDoc(userRef);
-
-      if (!userSnap.exists()) {
-        await setDoc(userRef, {
-          nama: namaInput,
-          dibuat: new Date().toISOString(),
-          aktif: true
-        });
-        alert("Selamat datang pertama kali, " + namaInput);
-      } else {
-        const data = userSnap.data();
-        if (data.aktif) {
-          alert("Anda sudah login di sesi lain. Silakan tunggu sesi sebelumnya berakhir.");
-          return;
-        }
-        await setDoc(userRef, { ...data, aktif: true }, { merge: true });
-        alert("Selamat datang kembali, " + namaInput);
-      }
-
-      localStorage.setItem("namaTetap", namaInput);
-      sessionStorage.setItem("namaUser", namaInput);
-      window.location.href = "dashboard.html";
-    }
-
-    window.login = login;
+    // Optional: submit on Enter
+    usernameEl.addEventListener('keyup', (e)=>{ if(e.key==='Enter') btnLogin.click(); });
   </script>
-</head>
-<body>
-  <h2>Login Pelatihan</h2>
-  <p id="info"></p>
-  <input type="text" id="nama" placeholder="Masukkan Nama Anda">
-  <button onclick="login()">Masuk</button>
 </body>
 </html>
