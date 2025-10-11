@@ -9,17 +9,13 @@
   <h2 id="welcome">Dashboard</h2>
 
   <div>
-    <button id="btnYouTube">Akses Streaming YouTube</button>
-    <button id="btnZoom">Akses Streaming Zoom</button>
-  </div>
-
-  <div>
-    <button id="btnCheckIn">Saya hadir hari ini</button>
+    <button id="btnHadir">Saya Hadir!</button>
     <p id="info"></p>
   </div>
 
   <div>
-    <button id="logout">Logout (clear local device data)</button>
+    <button id="btnYT" disabled>Akses YouTube</button>
+    <button id="btnZoom" disabled>Akses Zoom</button>
   </div>
 
   <script type="module">
@@ -32,107 +28,94 @@
       appId: "1:449936532510:web:9186754bceb92884c63a0f",
       measurementId: "G-5R08SBGN4N"
     };
-
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
     import {
-      getFirestore, doc, getDoc, setDoc, serverTimestamp, collection, getDocs
+      getFirestore, doc, getDoc, setDoc, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    function getDeviceId(){
-      return localStorage.getItem('gmi_device_id');
-    }
-    function getUsername(){
-      return localStorage.getItem('gmi_username');
-    }
+    const username = localStorage.getItem('gmi_username');
+    const deviceId = localStorage.getItem('gmi_device_id');
+    if(!username || !deviceId){location.href='index.html';}
 
-    const username = getUsername();
-    const deviceId = getDeviceId();
-    const welcome = document.getElementById('welcome');
-    const btnYouTube = document.getElementById('btnYouTube');
-    const btnZoom = document.getElementById('btnZoom');
-    const btnCheckIn = document.getElementById('btnCheckIn');
-    const info = document.getElementById('info');
-    const btnLogout = document.getElementById('logout');
+    const welcome=document.getElementById('welcome');
+    const btnHadir=document.getElementById('btnHadir');
+    const info=document.getElementById('info');
+    const btnYT=document.getElementById('btnYT');
+    const btnZoom=document.getElementById('btnZoom');
 
-    if(!username || !deviceId){
-      alert('Anda belum login. Arahkan ke halaman login.');
-      location.href = 'login.html';
-    } else {
-      welcome.innerText = `Halo, ${username}`;
-    }
+    welcome.innerText=`Halo, ${username}`;
 
-    // Helper: today's key (YYYY-MM-DD)
+    // helper: key date
     function ymdKey(d=new Date()){
-      const y = d.getFullYear();
-      const m = String(d.getMonth()+1).padStart(2,'0');
-      const dd = String(d.getDate()).padStart(2,'0');
+      const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');
       return `${y}-${m}-${dd}`;
     }
 
-    async function loadLinksAndBind(){
-      const settingsRef = doc(db, 'settings', 'dashboardLinks');
-      const snap = await getDoc(settingsRef);
-      let youtube = '#', zoom = '#';
-      if(snap.exists()){
-        const data = snap.data();
-        youtube = data.youtube || youtube;
-        zoom = data.zoom || zoom;
+    async function getLinks(){
+      const ref=doc(db,'settings','dashboardLinks');
+      const s=await getDoc(ref);
+      if(s.exists()){
+        const d=s.data();
+        return {yt:d.youtube||'#',zoom:d.zoom||'#'};
+      } return {yt:'#',zoom:'#'};
+    }
+
+    // check-in (once per 6h)
+    async function canCheckIn(){
+      const last=localStorage.getItem('last_checkin');
+      if(!last)return true;
+      const lastTime=Number(last);
+      const now=Date.now();
+      return now-lastTime>6*60*60*1000;
+    }
+
+    async function markCheckIn(){
+      const key=ymdKey();
+      await setDoc(doc(db,'attendance',key,'attendees',username),{
+        username,deviceId,present:true,checkedAt:serverTimestamp()
+      },{merge:true});
+      localStorage.setItem('last_checkin',Date.now());
+    }
+
+    async function init(){
+      const {yt,zoom}=await getLinks();
+      btnYT.onclick=()=>window.open(yt,'_blank');
+      btnZoom.onclick=()=>window.open(zoom,'_blank');
+      // cek status checkin
+      const ok=await canCheckIn();
+      if(!ok){
+        btnHadir.disabled=true;
+        btnYT.disabled=false;
+        btnZoom.disabled=false;
+        info.innerText='Anda sudah hadir dalam 6 jam terakhir.';
       }
-      btnYouTube.onclick = ()=>{ window.open(youtube, '_blank'); };
-      btnZoom.onclick = ()=>{ window.open(zoom, '_blank'); };
     }
 
-    // Check-in: write to collection attendance/{YYYY-MM-DD}/attendees/{username}
-    async function checkIn(){
-      const key = ymdKey();
-      const attendeeRef = doc(db, 'attendance', key, 'attendees', username);
-      await setDoc(attendeeRef, {
-        username,
-        deviceId,
-        present: true,
-        checkedAt: serverTimestamp()
-      }, { merge: true });
-      info.innerText = `Terima kasih ${username}, kehadiran hari ini dicatat. (${key})`;
-    }
-
-    btnCheckIn.addEventListener('click', async ()=>{
-      btnCheckIn.disabled = true;
+    btnHadir.onclick=async()=>{
+      const ok=await canCheckIn();
+      if(!ok){info.innerText='Anda sudah klik hadir sebelumnya.';return;}
+      btnHadir.disabled=true;
       try{
-        await checkIn();
+        await markCheckIn();
+        info.innerText='Kehadiran dicatat. Akses dibuka.';
+        btnYT.disabled=false;
+        btnZoom.disabled=false;
       }catch(e){
-        console.error(e);
-        info.innerText = 'Gagal mencatat kehadiran.';
+        console.error(e);info.innerText='Gagal mencatat kehadiran.';
       }
-      btnCheckIn.disabled = false;
-    });
+    }
 
-    btnLogout.addEventListener('click', ()=>{
-      // Clear local device storage (but does not delete Firestore bindings)
+    // Auto logout hidden timer (25 menit)
+    setTimeout(()=>{
+      alert('Waktu sesi habis, Anda akan logout.');
       localStorage.removeItem('gmi_username');
-      // keep deviceId to maintain binding (optional you may remove deviceId too)
-      // localStorage.removeItem('gmi_device_id');
-      location.href = 'login.html';
-    });
+      location.href='index.html';
+    },25*60*1000);
 
-    // On load
-    (async function(){
-      await loadLinksAndBind();
-      // check if already checked-in today
-      try{
-        const key = ymdKey();
-        const attendeeRef = doc(db, 'attendance', key, 'attendees', username);
-        const snap = await getDoc(attendeeRef);
-        if(snap.exists() && snap.data().present){
-          info.innerText = `Anda sudah hadir hari ini (${key}).`;
-        }
-      }catch(e){
-        console.error(e);
-      }
-    })();
-
+    init();
   </script>
 </body>
 </html>
