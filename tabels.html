@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Rekap Kehadiran Harian</title>
+  <title>Histori Kehadiran Peserta</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
@@ -16,29 +16,27 @@
 <body class="bg-gray-100 min-h-screen">
 
   <div class="max-w-5xl mx-auto py-10 px-4">
-    <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">📅 Rekap Kehadiran Peserta per Tanggal</h1>
+    <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">📜 Histori Kehadiran Peserta</h1>
 
-    <!-- Filter Acara + Tanggal -->
-    <div class="bg-white p-6 rounded-2xl shadow mb-8">
-      <label class="block text-gray-700 font-semibold mb-2">Nama Acara</label>
-      <input id="eventName" type="text" placeholder="Masukkan nama acara..." class="w-full px-4 py-2 border rounded-lg mb-4 focus:ring focus:ring-blue-300">
-
-      <label class="block text-gray-700 font-semibold mb-2">Pilih Tanggal Kehadiran</label>
-      <input id="datePicker" type="date" class="w-full px-4 py-2 border rounded-lg focus:ring focus:ring-blue-300">
-
-      <button id="btnLoad" class="mt-6 bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition w-full">
-        🔍 Tampilkan Kehadiran
-      </button>
+    <!-- Input tanggal -->
+    <div class="bg-white p-6 rounded-2xl shadow mb-8 text-center">
+      <label for="datePicker" class="block text-gray-700 font-semibold mb-2 text-left">Pilih tanggal kehadiran:</label>
+      <div class="flex items-center gap-4 justify-center">
+        <input id="datePicker" type="date" class="px-4 py-2 border rounded-lg focus:ring focus:ring-blue-300">
+        <button id="btnLoad" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition">
+          🔍 Lihat
+        </button>
+      </div>
     </div>
 
-    <!-- Tabel Hasil -->
+    <!-- Hasil -->
     <div id="rekapContainer" class="bg-white p-6 rounded-2xl shadow">
-      <p class="text-gray-500 text-center">Pilih tanggal untuk melihat data.</p>
+      <p class="text-gray-500 text-center">Pilih tanggal untuk melihat data kehadiran.</p>
     </div>
   </div>
 
   <script type="module">
-    // === Firebase Config ===
+    // Firebase Config
     const firebaseConfig = {
       apiKey: "AIzaSyDyx3hfM_49dQPWrYeKBuZ_5umRPGvTjLI",
       authDomain: "greciaexperiment.firebaseapp.com",
@@ -60,7 +58,6 @@
     const btnLoad = document.getElementById('btnLoad');
     const datePicker = document.getElementById('datePicker');
     const rekapContainer = document.getElementById('rekapContainer');
-    const eventName = document.getElementById('eventName');
 
     // ambil daftar peserta di attendance/{tanggal}/attendees
     async function getParticipants(dateKey){
@@ -83,7 +80,6 @@
     }
 
     btnLoad.onclick = async ()=>{
-      const eventTitle = eventName.value.trim() || 'Acara Tanpa Nama';
       const dateKey = datePicker.value;
       if(!dateKey){
         rekapContainer.innerHTML = `<p class="text-center text-red-500">❗ Silakan pilih tanggal terlebih dahulu.</p>`;
@@ -100,7 +96,7 @@
         }
 
         let html = `
-          <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">${eventTitle} — ${dateKey}</h2>
+          <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Kehadiran ${dateKey}</h2>
           <table class="w-full text-sm border">
             <thead>
               <tr>
